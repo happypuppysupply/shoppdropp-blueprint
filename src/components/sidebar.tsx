@@ -5,11 +5,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+
 
 const navItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -165,28 +161,22 @@ export function Sidebar() {
             const isActive = pathname === item.href;
             const Icon = item.icon;
             return (
-              <Tooltip key={item.href} delayDuration={0}>
-                <TooltipTrigger asChild>
-                  <Link
-                    href={item.href}
-                    className={cn(
-                      "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
-                      isActive
-                        ? "bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-white border border-purple-500/30"
-                        : "text-slate-400 hover:text-white hover:bg-white/5"
-                    )}
-                  >
-                    <Icon className={cn("w-5 h-5", isActive ? "text-purple-400" : "text-slate-500")} />
-                    <span>{item.name}</span>
-                    {isActive && (
-                      <div className="ml-auto w-1.5 h-1.5 rounded-full bg-purple-400" />
-                    )}
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent side="right" className="bg-slate-800 border-slate-700">
-                  <p>{item.name}</p>
-                </TooltipContent>
-              </Tooltip>
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+                  isActive
+                    ? "bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-white border border-purple-500/30"
+                    : "text-slate-400 hover:text-white hover:bg-white/5"
+                )}
+              >
+                <Icon className={cn("w-5 h-5", isActive ? "text-purple-400" : "text-slate-500")} />
+                <span>{item.name}</span>
+                {isActive && (
+                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-purple-400" />
+                )}
+              </Link>
             );
           })}
         </nav>
