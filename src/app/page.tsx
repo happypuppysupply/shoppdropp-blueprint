@@ -1,14 +1,18 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { ShoppDroppLogo, ShoppDroppText } from "@/components/logo";
 
 export default function Dashboard() {
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6 md:space-y-8">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">ShoppDropp Blueprint</h1>
-          <p className="text-slate-400 text-sm md:text-base">Autonomous eCommerce Operating System - Technical Specification</p>
+        <div className="flex items-center gap-4">
+          <ShoppDroppLogo className="w-12 h-12" />
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-white mb-1">System Blueprint</h1>
+            <p className="text-slate-400 text-sm md:text-base">Autonomous eCommerce Operating System</p>
+          </div>
         </div>
         <Badge className="bg-green-500/20 text-green-400 border-green-500/30 px-4 py-1.5 w-fit">
           Production Ready
@@ -17,7 +21,7 @@ export default function Dashboard() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-        <StatCard title="System Modules" value="15" subtitle="Core Components" color="purple" />
+        <StatCard title="System Modules" value="15" subtitle="Core Components" color="violet" />
         <StatCard title="API Endpoints" value="200+" subtitle="REST Endpoints" color="blue" />
         <StatCard title="Database Tables" value="25+" subtitle="Supabase Schema" color="pink" />
         <StatCard title="Job Types" value="30+" subtitle="Worker Pipeline" color="orange" />
@@ -26,10 +30,10 @@ export default function Dashboard() {
       {/* Main Content */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Architecture Overview */}
-        <Card className="lg:col-span-2 bg-slate-900/50 border-white/10">
+        <Card className="lg:col-span-2 bg-[#111118] border-white/10">
           <CardHeader>
             <CardTitle className="text-white flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-purple-500" />
+              <span className="w-2 h-2 rounded-full bg-violet-500" />
               System Architecture
             </CardTitle>
           </CardHeader>
@@ -39,7 +43,7 @@ export default function Dashboard() {
         </Card>
 
         {/* Quick Stats */}
-        <Card className="bg-slate-900/50 border-white/10">
+        <Card className="bg-[#111118] border-white/10">
           <CardHeader>
             <CardTitle className="text-white">Tech Stack</CardTitle>
           </CardHeader>
@@ -95,7 +99,7 @@ export default function Dashboard() {
       </div>
 
       {/* System Status */}
-      <Card className="bg-slate-900/50 border-white/10">
+      <Card className="bg-[#111118] border-white/10">
         <CardHeader>
           <CardTitle className="text-white">System Integration Flow</CardTitle>
         </CardHeader>
@@ -123,7 +127,7 @@ export default function Dashboard() {
 
 function StatCard({ title, value, subtitle, color }: { title: string; value: string; subtitle: string; color: string }) {
   const colorClasses: Record<string, string> = {
-    purple: "from-purple-500/20 to-purple-600/10 border-purple-500/30",
+    violet: "from-violet-500/20 to-violet-600/10 border-violet-500/30",
     blue: "from-blue-500/20 to-blue-600/10 border-blue-500/30",
     pink: "from-pink-500/20 to-pink-600/10 border-pink-500/30",
     orange: "from-orange-500/20 to-orange-600/10 border-orange-500/30",
@@ -142,7 +146,7 @@ function StatCard({ title, value, subtitle, color }: { title: string; value: str
 
 function ArchitectureFlow() {
   const layers = [
-    { name: "Dashboard (Next.js 15)", desc: "User Interface Layer", color: "purple" },
+    { name: "Dashboard (Next.js 15)", desc: "User Interface Layer", color: "violet" },
     { name: "API (NestJS)", desc: "Business Logic Layer", color: "blue" },
     { name: "Supabase + Redis", desc: "Data & Queue Layer", color: "pink" },
     { name: "Orchestrator", desc: "Infrastructure Layer", color: "orange" },
@@ -178,7 +182,7 @@ function TechBadge({ name, category }: { name: string; category: string }) {
 
 function FeatureCard({ title, description, icon, status }: { title: string; description: string; icon: string; status: string }) {
   return (
-    <Card className="bg-slate-900/50 border-white/10 card-hover">
+    <Card className="bg-[#111118] border-white/10 card-hover">
       <CardContent className="p-4 md:p-6">
         <div className="flex items-start justify-between mb-3 md:mb-4">
           <span className="text-2xl md:text-3xl">{icon}</span>
@@ -194,7 +198,7 @@ function FeatureCard({ title, description, icon, status }: { title: string; desc
 function IntegrationNode({ name, type }: { name: string; type: string }) {
   const colors: Record<string, string> = {
     start: "bg-green-500/20 border-green-500/50 text-green-400",
-    app: "bg-purple-500/20 border-purple-500/50 text-purple-400",
+    app: "bg-violet-500/20 border-violet-500/50 text-violet-400",
     service: "bg-blue-500/20 border-blue-500/50 text-blue-400",
     database: "bg-pink-500/20 border-pink-500/50 text-pink-400",
     worker: "bg-orange-500/20 border-orange-500/50 text-orange-400",
