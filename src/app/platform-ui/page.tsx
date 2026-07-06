@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ShoppDroppLogo, ShoppDroppLogoSmall, ShoppDroppText } from "@/components/logo";
+import { ShoppDroppLogoSmall } from "@/components/logo";
 import { useState } from "react";
 
 const uiScreens = [
@@ -10,40 +10,40 @@ const uiScreens = [
     id: "login",
     name: "Login / Sign Up",
     category: "Auth",
-    description: "OAuth and email authentication with onboarding questions",
-    elements: ["Google/GitHub OAuth", "Email/password", "Experience level selector", "Goals checklist"]
+    description: "OAuth and email authentication with onboarding",
+    elements: ["Google/GitHub OAuth", "Email/password", "Onboarding questions", "Secure encryption"]
   },
   {
     id: "dashboard",
     name: "Dashboard Home",
     category: "Dashboard",
-    description: "Main dashboard with stats, activity feed, and connected platforms",
-    elements: ["Revenue cards", "AI Activity Feed", "Sales chart", "Platform status"]
+    description: "Main dashboard with stats, activity, and platform status",
+    elements: ["Revenue cards", "AI Activity Feed", "Sales chart", "Platform connections"]
   },
   {
     id: "connect-accounts",
     name: "Connect Accounts",
     category: "Onboarding",
-    description: "Step 1: Connect all integrations (Shopify, AutoDS, Meta, TikTok, YouTube, AI)",
-    elements: ["Integration grid", "Connection status", "Store niche input", "Security notice"]
+    description: "Connect Shopify, AutoDS, Meta, TikTok, YouTube, AI",
+    elements: ["Integration grid", "Connection status", "Store niche", "Security notice"]
   },
   {
     id: "ai-preferences",
     name: "AI Preferences",
     category: "Onboarding",
-    description: "Step 2: Configure AI strategy, niche, audience, goals, and budget",
-    elements: ["Niche selector", "Audience targeting", "Business goals", "Ad budget slider", "AI Strategy Preview panel"]
+    description: "Configure AI strategy, niche, audience, goals, budget",
+    elements: ["Niche selector", "Audience targeting", "Business goals", "Ad budget", "AI Strategy Preview"]
   },
   {
     id: "connect-tools",
     name: "Connect Your Tools",
     category: "Onboarding",
-    description: "Step 3: API connection interface for all platforms",
-    elements: ["API key inputs", "Connection status badges", "Encrypted security notice", "Platform cards"]
+    description: "API connection interface for all platforms",
+    elements: ["API key inputs", "Connection status", "Encrypted security", "Platform cards"]
   },
   {
     id: "projects",
-    name: "Projects List",
+    name: "Projects",
     category: "Dashboard",
     description: "View and manage all AI store projects",
     elements: ["Project cards", "Status indicators", "Quick actions", "Filter/search"]
@@ -53,67 +53,525 @@ const uiScreens = [
     name: "Products",
     category: "Store",
     description: "Product management and AutoDS integration",
-    elements: ["Product grid", "Import from AutoDS", "Pricing rules", "Inventory sync"]
+    elements: ["Product grid", "AutoDS import", "Pricing rules", "Inventory sync"]
   },
   {
     id: "orders",
     name: "Orders",
     category: "Store",
-    description: "Order management and fulfillment tracking",
-    elements: ["Order list", "Status tracking", "Fulfillment details", "Export options"]
+    description: "Order management and fulfillment",
+    elements: ["Order list", "Status tracking", "Fulfillment", "Export"]
   },
   {
     id: "content",
     name: "Content",
     category: "Marketing",
-    description: "AI-generated content management (blogs, descriptions, social)",
-    elements: ["Content calendar", "AI generator", "Published posts", "Performance metrics"]
+    description: "AI-generated content management",
+    elements: ["Content calendar", "AI generator", "Published posts", "Metrics"]
   },
   {
     id: "ads",
-    name: "Ads Manager",
+    name: "Ads",
     category: "Marketing",
     description: "Meta and TikTok ad campaign management",
-    elements: ["Campaign list", "Create campaign", "Budget/ROAS charts", "Audience targeting"]
+    elements: ["Campaign list", "Create campaign", "Budget/ROAS", "Targeting"]
   },
   {
     id: "analytics",
     name: "Analytics",
     category: "Analytics",
-    description: "Store performance, traffic, and conversion analytics",
+    description: "Store performance and conversion analytics",
     elements: ["Revenue charts", "Traffic sources", "Conversion funnel", "AI insights"]
   },
   {
     id: "automation",
     name: "Automation",
     category: "AI",
-    description: "Configure AI automation rules and workflows",
-    elements: ["Automation rules", "Trigger setup", "Action sequences", "AI Agent status"]
+    description: "Configure AI automation rules",
+    elements: ["Automation rules", "Triggers", "Actions", "AI Agent status"]
   },
   {
     id: "ai-agent",
     name: "AI Agent",
     category: "AI",
-    description: "Direct chat interface with the AI assistant",
-    elements: ["Chat interface", "Suggested actions", "Task history", "AI status"]
+    description: "Direct chat with AI assistant",
+    elements: ["Chat interface", "Suggestions", "Task history", "AI status"]
   },
   {
     id: "integrations",
     name: "Integrations",
     category: "Settings",
-    description: "Manage all connected platform integrations",
-    elements: ["Platform cards", "Connection status", "API key management", "Webhook settings"]
+    description: "Manage connected platform integrations",
+    elements: ["Platform cards", "Connection status", "API keys", "Webhooks"]
   },
   {
     id: "settings",
     name: "Settings",
     category: "Settings",
-    description: "Account settings, team management, and preferences",
-    elements: ["Profile settings", "Team members", "Billing info", "Notification prefs"]
+    description: "Account settings and preferences",
+    elements: ["Profile", "Team", "Billing", "Notifications"]
   }
 ];
 
 const categories = [...new Set(uiScreens.map(s => s.category))];
+
+// Unique mockup components for each screen
+function LoginMockup() {
+  return (
+    <div className="h-full flex flex-col p-3">
+      <div className="flex-1 flex flex-col items-center justify-center">
+        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500 to-pink-500 mb-3 flex items-center justify-center">
+          <span className="text-white font-bold text-lg">S</span>
+        </div>
+        <div className="h-3 w-24 bg-white/20 rounded mb-4" />
+        <div className="w-full space-y-2">
+          <div className="h-8 bg-white/10 rounded-lg flex items-center px-3">
+            <div className="w-4 h-4 rounded-full bg-white/20 mr-2" />
+            <div className="h-2 w-20 bg-white/30 rounded" />
+          </div>
+          <div className="h-8 bg-white/10 rounded-lg flex items-center px-3">
+            <div className="w-4 h-4 rounded-full bg-white/20 mr-2" />
+            <div className="h-2 w-24 bg-white/30 rounded" />
+          </div>
+          <div className="h-8 bg-gradient-to-r from-violet-500 to-pink-500 rounded-lg flex items-center justify-center">
+            <div className="h-2 w-16 bg-white/80 rounded" />
+          </div>
+        </div>
+        <div className="mt-3 flex gap-2">
+          <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center">
+            <div className="w-3 h-3 rounded-sm bg-white/40" />
+          </div>
+          <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center">
+            <div className="w-3 h-3 rounded-full bg-white/40" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function DashboardMockup() {
+  return (
+    <div className="h-full p-3 space-y-2">
+      <div className="grid grid-cols-3 gap-2">
+        <div className="p-2 rounded-lg bg-gradient-to-br from-violet-500/20 to-violet-600/10 border border-violet-500/30">
+          <div className="h-2 w-8 bg-white/40 rounded mb-1" />
+          <div className="h-4 w-12 bg-white rounded" />
+        </div>
+        <div className="p-2 rounded-lg bg-white/5 border border-white/10">
+          <div className="h-2 w-8 bg-white/30 rounded mb-1" />
+          <div className="h-4 w-10 bg-white/80 rounded" />
+        </div>
+        <div className="p-2 rounded-lg bg-white/5 border border-white/10">
+          <div className="h-2 w-8 bg-white/30 rounded mb-1" />
+          <div className="h-4 w-10 bg-white/80 rounded" />
+        </div>
+      </div>
+      <div className="h-16 rounded-lg bg-white/5 border border-white/10 p-2">
+        <div className="h-2 w-16 bg-white/40 rounded mb-2" />
+        <div className="flex items-end gap-1 h-8">
+          {[40, 60, 45, 80, 55, 70, 65].map((h, i) => (
+            <div key={i} className="flex-1 bg-gradient-to-t from-violet-500 to-pink-500 rounded-sm" style={{height: `${h}%`}} />
+          ))}
+        </div>
+      </div>
+      <div className="p-2 rounded-lg bg-white/5 border border-white/10">
+        <div className="h-2 w-20 bg-white/40 rounded mb-2" />
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded bg-green-500/20 flex items-center justify-center">
+              <div className="w-2 h-2 rounded-full bg-green-400" />
+            </div>
+            <div className="h-2 w-20 bg-white/30 rounded" />
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded bg-green-500/20 flex items-center justify-center">
+              <div className="w-2 h-2 rounded-full bg-green-400" />
+            </div>
+            <div className="h-2 w-16 bg-white/30 rounded" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ConnectAccountsMockup() {
+  return (
+    <div className="h-full p-3 space-y-2">
+      <div className="h-2 w-32 bg-white/40 rounded mb-3" />
+      <div className="grid grid-cols-3 gap-2">
+        {['Shopify', 'AutoDS', 'Meta', 'TikTok', 'YouTube', 'AI'].map((name, i) => (
+          <div key={i} className="p-2 rounded-lg bg-white/5 border border-white/10 flex flex-col items-center">
+            <div className={`w-6 h-6 rounded-lg mb-1 ${i < 3 ? 'bg-green-500/20' : 'bg-white/10'} flex items-center justify-center`}>
+              <div className={`w-3 h-3 rounded-sm ${i < 3 ? 'bg-green-400' : 'bg-white/40'}`} />
+            </div>
+            <div className="h-1.5 w-8 bg-white/30 rounded" />
+            {i < 3 && <div className="mt-1 h-1.5 w-6 bg-green-500/40 rounded-full" />}
+          </div>
+        ))}
+      </div>
+      <div className="p-2 rounded-lg bg-violet-500/10 border border-violet-500/30">
+        <div className="h-2 w-24 bg-white/40 rounded mb-1" />
+        <div className="h-1.5 w-full bg-white/20 rounded" />
+      </div>
+    </div>
+  );
+}
+
+function AIPreferencesMockup() {
+  return (
+    <div className="h-full p-3 space-y-2">
+      <div className="h-2 w-24 bg-white/40 rounded" />
+      <div className="grid grid-cols-2 gap-2">
+        <div className="p-2 rounded-lg bg-white/5 border border-white/10">
+          <div className="h-1.5 w-12 bg-white/30 rounded mb-1" />
+          <div className="h-6 bg-violet-500/20 rounded border border-violet-500/30 flex items-center px-2">
+            <div className="h-1.5 w-16 bg-white/50 rounded" />
+          </div>
+        </div>
+        <div className="p-2 rounded-lg bg-white/5 border border-white/10">
+          <div className="h-1.5 w-12 bg-white/30 rounded mb-1" />
+          <div className="h-6 bg-white/10 rounded flex items-center px-2">
+            <div className="h-1.5 w-14 bg-white/30 rounded" />
+          </div>
+        </div>
+      </div>
+      <div className="p-2 rounded-lg bg-gradient-to-br from-violet-500/20 to-pink-500/10 border border-violet-500/30">
+        <div className="h-2 w-20 bg-white/50 rounded mb-2" />
+        <div className="h-1.5 w-full bg-white/20 rounded mb-1" />
+        <div className="h-1.5 w-5/6 bg-white/20 rounded mb-1" />
+        <div className="h-1.5 w-4/6 bg-white/20 rounded" />
+      </div>
+      <div className="h-1 w-full bg-white/10 rounded-full">
+        <div className="h-1 w-2/3 bg-gradient-to-r from-violet-500 to-pink-500 rounded-full" />
+      </div>
+    </div>
+  );
+}
+
+function ConnectToolsMockup() {
+  return (
+    <div className="h-full p-3 space-y-2">
+      <div className="flex items-center gap-2 mb-2">
+        <div className="w-4 h-4 rounded bg-green-500/30 flex items-center justify-center">
+          <div className="w-2 h-2 rounded-full bg-green-400" />
+        </div>
+        <div className="h-2 w-24 bg-white/40 rounded" />
+      </div>
+      {['Shopify API', 'AutoDS API', 'OpenAI API'].map((_, i) => (
+        <div key={i} className="p-2 rounded-lg bg-white/5 border border-white/10">
+          <div className="flex items-center justify-between mb-1">
+            <div className="h-1.5 w-16 bg-white/40 rounded" />
+            <div className="h-1.5 w-8 bg-green-500/40 rounded-full" />
+          </div>
+          <div className="h-5 bg-white/10 rounded flex items-center px-2">
+            <div className="h-1 w-20 bg-white/20 rounded" />
+            <div className="ml-auto h-3 w-3 rounded bg-white/20" />
+          </div>
+        </div>
+      ))}
+      <div className="p-1.5 rounded bg-violet-500/10 border border-violet-500/20 flex items-center gap-1">
+        <div className="w-3 h-3 rounded-full bg-violet-500/40" />
+        <div className="h-1.5 w-20 bg-white/30 rounded" />
+      </div>
+    </div>
+  );
+}
+
+function ProjectsMockup() {
+  return (
+    <div className="h-full p-3 space-y-2">
+      <div className="flex items-center justify-between mb-2">
+        <div className="h-2 w-16 bg-white/40 rounded" />
+        <div className="h-5 w-14 bg-gradient-to-r from-violet-500 to-pink-500 rounded-lg" />
+      </div>
+      {[1, 2].map((_, i) => (
+        <div key={i} className="p-2 rounded-lg bg-white/5 border border-white/10">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500/30 to-pink-500/30" />
+              <div>
+                <div className="h-2 w-20 bg-white/50 rounded mb-1" />
+                <div className="h-1 w-14 bg-white/20 rounded" />
+              </div>
+            </div>
+            <div className="h-1.5 w-10 bg-green-500/40 rounded-full" />
+          </div>
+          <div className="flex gap-2 mt-2">
+            <div className="h-1 w-8 bg-white/20 rounded" />
+            <div className="h-1 w-8 bg-white/20 rounded" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ProductsMockup() {
+  return (
+    <div className="h-full p-3 space-y-2">
+      <div className="flex items-center justify-between mb-2">
+        <div className="h-2 w-14 bg-white/40 rounded" />
+        <div className="h-5 w-20 bg-gradient-to-r from-violet-500 to-pink-500 rounded-lg" />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {[1, 2, 3, 4].map((_, i) => (
+          <div key={i} className="p-2 rounded-lg bg-white/5 border border-white/10">
+            <div className="h-10 bg-white/10 rounded mb-2 flex items-center justify-center">
+              <div className="w-6 h-6 rounded bg-white/20" />
+            </div>
+            <div className="h-1.5 w-full bg-white/30 rounded mb-1" />
+            <div className="h-1 w-2/3 bg-white/20 rounded" />
+            <div className="mt-1.5 flex items-center justify-between">
+              <div className="h-2 w-8 bg-white/40 rounded" />
+              <div className="h-3 w-3 rounded-full bg-green-500/40" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function OrdersMockup() {
+  return (
+    <div className="h-full p-3 space-y-2">
+      <div className="h-2 w-12 bg-white/40 rounded mb-2" />
+      <div className="space-y-1.5">
+        {['#1234', '#1235', '#1236'].map((_, i) => (
+          <div key={i} className="p-2 rounded-lg bg-white/5 border border-white/10 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded bg-white/10 flex items-center justify-center">
+                <div className="w-3 h-3 rounded-sm bg-white/30" />
+              </div>
+              <div>
+                <div className="h-1.5 w-16 bg-white/40 rounded mb-0.5" />
+                <div className="h-1 w-12 bg-white/20 rounded" />
+              </div>
+            </div>
+            <div className="h-1.5 w-12 bg-green-500/40 rounded-full" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ContentMockup() {
+  return (
+    <div className="h-full p-3 space-y-2">
+      <div className="h-2 w-16 bg-white/40 rounded mb-2" />
+      <div className="flex gap-2 mb-2">
+        {['All', 'Blog', 'Social'].map((_, i) => (
+          <div key={i} className={`px-2 py-1 rounded-full ${i === 0 ? 'bg-violet-500/30' : 'bg-white/10'}`}>
+            <div className="h-1.5 w-6 bg-white/50 rounded" />
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        {[1, 2].map((_, i) => (
+          <div key={i} className="p-2 rounded-lg bg-white/5 border border-white/10">
+            <div className="h-8 bg-white/10 rounded mb-2" />
+            <div className="h-1.5 w-full bg-white/30 rounded mb-1" />
+            <div className="h-1 w-2/3 bg-white/20 rounded" />
+            <div className="mt-2 flex items-center gap-1">
+              <div className="h-1 w-8 bg-violet-500/40 rounded-full" />
+              <div className="h-1 w-6 bg-white/20 rounded-full" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function AdsMockup() {
+  return (
+    <div className="h-full p-3 space-y-2">
+      <div className="flex items-center justify-between mb-2">
+        <div className="h-2 w-10 bg-white/40 rounded" />
+        <div className="h-5 w-20 bg-gradient-to-r from-violet-500 to-pink-500 rounded-lg" />
+      </div>
+      <div className="p-2 rounded-lg bg-white/5 border border-white/10">
+        <div className="flex items-center justify-between mb-2">
+          <div className="h-2 w-20 bg-white/50 rounded" />
+          <div className="h-1.5 w-10 bg-green-500/40 rounded-full" />
+        </div>
+        <div className="flex gap-3">
+          <div className="text-center">
+            <div className="h-1.5 w-8 bg-white/30 rounded mb-1" />
+            <div className="h-2 w-10 bg-white/50 rounded" />
+          </div>
+          <div className="text-center">
+            <div className="h-1.5 w-8 bg-white/30 rounded mb-1" />
+            <div className="h-2 w-10 bg-white/50 rounded" />
+          </div>
+        </div>
+      </div>
+      <div className="h-12 rounded-lg bg-white/5 border border-white/10 p-2">
+        <div className="h-1.5 w-16 bg-white/30 rounded mb-1" />
+        <div className="h-1 w-full bg-white/10 rounded-full">
+          <div className="h-1 w-3/5 bg-gradient-to-r from-violet-500 to-pink-500 rounded-full" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AnalyticsMockup() {
+  return (
+    <div className="h-full p-3 space-y-2">
+      <div className="h-2 w-16 bg-white/40 rounded mb-2" />
+      <div className="grid grid-cols-3 gap-2">
+        {['Revenue', 'Orders', 'ROAS'].map((_, i) => (
+          <div key={i} className="p-2 rounded-lg bg-white/5 border border-white/10">
+            <div className="h-1 w-10 bg-white/30 rounded mb-1" />
+            <div className="h-3 w-12 bg-white/60 rounded" />
+            <div className="mt-1 h-1 w-6 bg-green-500/40 rounded-full" />
+          </div>
+        ))}
+      </div>
+      <div className="h-14 rounded-lg bg-white/5 border border-white/10 p-2">
+        <div className="h-1.5 w-20 bg-white/40 rounded mb-2" />
+        <div className="flex items-end gap-1 h-6">
+          {[30, 50, 40, 70, 60, 80, 55].map((h, i) => (
+            <div key={i} className="flex-1 bg-gradient-to-t from-violet-500 to-pink-500 rounded-sm" style={{height: `${h}%`}} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AutomationMockup() {
+  return (
+    <div className="h-full p-3 space-y-2">
+      <div className="h-2 w-20 bg-white/40 rounded mb-2" />
+      <div className="p-2 rounded-lg bg-gradient-to-br from-violet-500/20 to-pink-500/10 border border-violet-500/30">
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-6 h-6 rounded-lg bg-violet-500/30 flex items-center justify-center">
+            <div className="w-3 h-3 rounded-full bg-violet-400" />
+          </div>
+          <div className="h-2 w-24 bg-white/50 rounded" />
+        </div>
+        <div className="flex gap-2">
+          <div className="px-2 py-1 rounded bg-white/10">
+            <div className="h-1 w-8 bg-white/40 rounded" />
+          </div>
+          <div className="px-2 py-1 rounded bg-white/10">
+            <div className="h-1 w-8 bg-white/40 rounded" />
+          </div>
+        </div>
+      </div>
+      <div className="p-2 rounded-lg bg-white/5 border border-white/10">
+        <div className="flex items-center justify-between">
+          <div className="h-2 w-20 bg-white/40 rounded" />
+          <div className="w-8 h-4 rounded-full bg-violet-500/40 relative">
+            <div className="absolute right-0.5 top-0.5 w-3 h-3 rounded-full bg-white" />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AIAgentMockup() {
+  return (
+    <div className="h-full flex flex-col p-3">
+      <div className="flex-1 space-y-2 overflow-hidden">
+        <div className="flex gap-2">
+          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-violet-500 to-pink-500 flex-shrink-0" />
+          <div className="flex-1 p-2 rounded-lg bg-white/5 border border-white/10">
+            <div className="h-1 w-full bg-white/20 rounded mb-1" />
+            <div className="h-1 w-2/3 bg-white/20 rounded" />
+          </div>
+        </div>
+        <div className="flex gap-2 justify-end">
+          <div className="flex-1 p-2 rounded-lg bg-violet-500/20 border border-violet-500/30">
+            <div className="h-1 w-full bg-white/30 rounded mb-1" />
+            <div className="h-1 w-1/2 bg-white/30 rounded" />
+          </div>
+          <div className="w-6 h-6 rounded-full bg-white/20 flex-shrink-0" />
+        </div>
+      </div>
+      <div className="mt-2 p-2 rounded-lg bg-white/5 border border-white/10 flex items-center gap-2">
+        <div className="flex-1 h-6 bg-white/10 rounded" />
+        <div className="w-6 h-6 rounded-lg bg-gradient-to-r from-violet-500 to-pink-500" />
+      </div>
+    </div>
+  );
+}
+
+function IntegrationsMockup() {
+  return (
+    <div className="h-full p-3 space-y-2">
+      <div className="h-2 w-20 bg-white/40 rounded mb-2" />
+      {['Shopify', 'AutoDS', 'Meta Ads', 'TikTok'].map((_, i) => (
+        <div key={i} className="p-2 rounded-lg bg-white/5 border border-white/10 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center">
+              <div className="w-3.5 h-3.5 rounded-sm bg-white/40" />
+            </div>
+            <div className="h-2 w-14 bg-white/40 rounded" />
+          </div>
+          <div className={`h-1.5 w-12 rounded-full ${i < 2 ? 'bg-green-500/40' : 'bg-white/20'}`} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function SettingsMockup() {
+  return (
+    <div className="h-full p-3 space-y-2">
+      <div className="h-2 w-14 bg-white/40 rounded mb-2" />
+      <div className="flex items-center gap-3 p-2 rounded-lg bg-white/5 border border-white/10">
+        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-500 to-pink-500" />
+        <div className="flex-1">
+          <div className="h-2 w-20 bg-white/50 rounded mb-1" />
+          <div className="h-1 w-24 bg-white/20 rounded" />
+        </div>
+      </div>
+      {['Account', 'Billing', 'Notifications'].map((_, i) => (
+        <div key={i} className="p-2 rounded-lg bg-white/5 border border-white/10 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded bg-white/10" />
+            <div className="h-1.5 w-16 bg-white/40 rounded" />
+          </div>
+          <div className="w-4 h-4 rounded bg-white/10" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const mockupComponents: Record<string, React.FC> = {
+  login: LoginMockup,
+  dashboard: DashboardMockup,
+  'connect-accounts': ConnectAccountsMockup,
+  'ai-preferences': AIPreferencesMockup,
+  'connect-tools': ConnectToolsMockup,
+  projects: ProjectsMockup,
+  products: ProductsMockup,
+  orders: OrdersMockup,
+  content: ContentMockup,
+  ads: AdsMockup,
+  analytics: AnalyticsMockup,
+  automation: AutomationMockup,
+  'ai-agent': AIAgentMockup,
+  integrations: IntegrationsMockup,
+  settings: SettingsMockup,
+};
+
+function ScreenMockup({ screenId }: { screenId: string }) {
+  const MockupComponent = mockupComponents[screenId] || LoginMockup;
+  return (
+    <div className="aspect-[4/3] bg-gradient-to-br from-[#0a0a0f] to-[#111118] relative overflow-hidden rounded-t-xl">
+      <MockupComponent />
+    </div>
+  );
+}
 
 export default function PlatformUIPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
@@ -161,7 +619,7 @@ export default function PlatformUIPage() {
         ))}
       </div>
 
-      {/* Screen Grid */}
+      {/* Screen Grid - Mobile Responsive */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {filteredScreens.map((screen, index) => (
           <div
@@ -170,33 +628,16 @@ export default function PlatformUIPage() {
             className="group cursor-pointer"
           >
             <div className="relative overflow-hidden rounded-2xl bg-[#111118] border border-white/10 hover:border-violet-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-violet-500/10">
-              {/* Mock Screen Preview */}
-              <div className="aspect-[4/3] bg-gradient-to-br from-[#0a0a0f] to-[#111118] p-3 relative">
-                {/* Header mock with logo */}
-                <div className="flex items-center gap-2 mb-3">
-                  <ShoppDroppLogoSmall className="w-6 h-6" />
-                  <div className="h-2 w-16 bg-white/20 rounded" />
-                  <div className="ml-auto flex gap-1">
-                    <div className="w-3 h-3 rounded-full bg-white/10" />
-                  </div>
-                </div>
-                {/* Content mock */}
-                <div className="space-y-2">
-                  <div className="h-3 w-3/4 bg-gradient-to-r from-violet-500/30 to-pink-500/30 rounded" />
-                  <div className="h-2 w-full bg-white/5 rounded" />
-                  <div className="h-2 w-5/6 bg-white/5 rounded" />
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <div className="h-14 bg-gradient-to-br from-violet-500/10 to-pink-500/10 rounded-lg border border-violet-500/20" />
-                    <div className="h-14 bg-white/5 rounded-lg" />
-                  </div>
-                </div>
-                {/* Hover overlay */}
-                <div className="absolute inset-0 bg-violet-500/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                  <span className="bg-gradient-to-r from-violet-500 to-pink-500 text-white px-4 py-2 rounded-lg text-sm font-medium">View Details</span>
-                </div>
+              {/* Unique Mockup for each screen */}
+              <ScreenMockup screenId={screen.id} />
+              
+              {/* Hover overlay */}
+              <div className="absolute inset-0 bg-violet-500/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                <span className="bg-gradient-to-r from-violet-500 to-pink-500 text-white px-4 py-2 rounded-lg text-sm font-medium">View Details</span>
               </div>
+              
               {/* Info */}
-              <div className="p-4">
+              <div className="p-4 bg-[#111118]">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs text-slate-500">{screen.category}</span>
                   <span className="text-xs text-slate-600">#{index + 1}</span>
@@ -258,7 +699,7 @@ export default function PlatformUIPage() {
                   <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 bg-[#111118]">
                     <div className="flex items-center gap-3">
                       <ShoppDroppLogoSmall className="w-7 h-7" />
-                      <ShoppDroppText className="text-base" />
+                      <span className="font-bold text-white">SHOPP<span className="text-violet-400">DROPP</span></span>
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-violet-500/10 border border-violet-500/20">
@@ -269,79 +710,12 @@ export default function PlatformUIPage() {
                     </div>
                   </div>
 
-                  {/* Page Content - Dynamic based on screen type */}
-                  <div className="p-4 space-y-4">
-                    {/* Page Title */}
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h1 className="text-lg font-bold text-white">{selectedScreen.name}</h1>
-                        <p className="text-xs text-slate-400">{selectedScreen.description}</p>
-                      </div>
-                      <button className="px-4 py-2 bg-gradient-to-r from-violet-500 to-pink-500 text-white rounded-lg text-sm font-medium">
-                        Action
-                      </button>
-                    </div>
-
-                    {/* Stats Row */}
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-                        <p className="text-xs text-slate-400">Metric 1</p>
-                        <p className="text-lg font-bold text-white">$12.5K</p>
-                        <p className="text-xs text-green-400">+18.5%</p>
-                      </div>
-                      <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-                        <p className="text-xs text-slate-400">Metric 2</p>
-                        <p className="text-lg font-bold text-white">326</p>
-                        <p className="text-xs text-green-400">+12.4%</p>
-                      </div>
-                      <div className="p-3 rounded-xl bg-white/5 border border-white/10">
-                        <p className="text-xs text-slate-400">Metric 3</p>
-                        <p className="text-lg font-bold text-white">3.8x</p>
-                        <p className="text-xs text-green-400">+22.7%</p>
-                      </div>
-                    </div>
-
-                    {/* Content Area */}
-                    <div className="grid grid-cols-3 gap-4">
-                      <div className="col-span-2 p-4 rounded-xl bg-white/5 border border-white/10">
-                        <div className="h-4 w-1/3 bg-white/20 rounded mb-3" />
-                        <div className="space-y-2">
-                          <div className="h-3 w-full bg-white/5 rounded" />
-                          <div className="h-3 w-5/6 bg-white/5 rounded" />
-                          <div className="h-3 w-4/5 bg-white/5 rounded" />
-                        </div>
-                        <div className="mt-4 h-32 bg-gradient-to-br from-violet-500/10 to-pink-500/10 rounded-lg border border-violet-500/20 flex items-center justify-center">
-                          <span className="text-violet-400 text-sm">Chart/Visualization</span>
-                        </div>
-                      </div>
-                      <div className="p-4 rounded-xl bg-white/5 border border-white/10">
-                        <div className="h-4 w-2/3 bg-white/20 rounded mb-3" />
-                        <div className="space-y-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center">
-                              <svg className="w-4 h-4 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                              </svg>
-                            </div>
-                            <div className="flex-1">
-                              <div className="h-2 w-20 bg-white/20 rounded" />
-                              <div className="h-2 w-12 bg-white/10 rounded mt-1" />
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-lg bg-pink-500/20 flex items-center justify-center">
-                              <svg className="w-4 h-4 text-pink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                              </svg>
-                            </div>
-                            <div className="flex-1">
-                              <div className="h-2 w-16 bg-white/20 rounded" />
-                              <div className="h-2 w-10 bg-white/10 rounded mt-1" />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+                  {/* Full Screen Mockup */}
+                  <div className="aspect-video">
+                    {(() => {
+                      const FullMockup = mockupComponents[selectedScreen.id] || LoginMockup;
+                      return <FullMockup />;
+                    })()}
                   </div>
                 </div>
               </div>
