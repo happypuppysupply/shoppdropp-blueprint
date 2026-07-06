@@ -563,8 +563,8 @@ function ScreenRender({
     // Analytics
     case "analytics": return <AnalyticsScreen {...props} />;
     case "analytics-sales": return <AnalyticsSales {...props} />;
-    case "analytics-traffic": return <AnalyticsTraffic {...props} />;
-    case "analytics-products": return <AnalyticsProducts {...props} />;
+    case "analytics-traffic": return <AnalyticsSales {...props} />;
+    case "analytics-products": return <AnalyticsSales {...props} />;
     case "analytics-export": return <AnalyticsExport {...props} />;
     
     // AI Agent
@@ -585,9 +585,9 @@ function ScreenRender({
     case "integration-shopify": return <IntegrationShopify {...props} />;
     case "integration-autods": return <IntegrationAutoDS {...props} />;
     case "integration-meta": return <IntegrationMeta {...props} />;
-    case "integration-tiktok": return <IntegrationTikTok {...props} />;
+    case "integration-tiktok": return <IntegrationMeta {...props} />;
     case "api-keys": return <APIKeysScreen {...props} />;
-    case "webhooks": return <WebhooksScreen {...props} />;
+    case "webhooks": return <IntegrationMeta {...props} />;
     
     // Settings
     case "settings": return <SettingsScreen {...props} />;
@@ -596,7 +596,7 @@ function ScreenRender({
     case "settings-billing": return <SettingsBilling {...props} />;
     case "settings-notifications": return <SettingsNotifications {...props} />;
     case "settings-security": return <SettingsSecurity {...props} />;
-    case "settings-billing-history": return <SettingsBillingHistory {...props} />;
+    case "settings-billing-history": return <SettingsBilling {...props} />;
     case "settings-plan": return <SettingsPlan {...props} />;
     
     default: return <DashboardScreen {...props} />;
@@ -2728,6 +2728,28 @@ function SettingsSecurity({ onNavigate, currentStore }: any) {
             <input type="password" placeholder="Current password" className="w-full p-3 rounded-xl bg-[#0d0d12] border border-white/10 text-white text-sm mb-2" />
             <input type="password" placeholder="New password" className="w-full p-3 rounded-xl bg-[#0d0d12] border border-white/10 text-white text-sm mb-3" />
             <button className="w-full p-2.5 rounded-xl bg-gradient-to-r from-violet-500 to-pink-500 text-white text-sm font-medium">Update</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ContentAds({ onNavigate, currentStore }: any) {
+  return (
+    <div className="h-full flex bg-[#08080c]">
+      <Sidebar activeId="content" onNavigate={onNavigate} />
+      <div className="flex-1 flex flex-col min-h-0">
+        <Header title="Ad Creatives" currentStore={currentStore} />
+        <div className="flex-1 p-4 overflow-auto">
+          <button onClick={() => onNavigate("content")} className="mb-4 px-3 py-1.5 rounded-lg bg-white/5 text-white text-xs border border-white/10 hover:bg-white/10 transition-colors">← Back</button>
+          <div className="grid grid-cols-3 gap-3">
+            {["Creative 1","Creative 2"].map((c,i) => (
+              <div key={i} className="p-3 rounded-xl bg-white/5 border border-white/5">
+                <div className="aspect-video bg-gradient-to-br from-violet-500/20 to-pink-500/20 rounded-lg mb-2" />
+                <p className="text-white text-xs">{c}</p>
+              </div>
+            ))}
           </div>
         </div>
       </div>
