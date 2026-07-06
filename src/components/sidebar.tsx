@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-
 
 const navItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -22,6 +22,7 @@ const navItems = [
   { name: "External APIs", href: "/external-apis", icon: Plug },
   { name: "Monitoring", href: "/monitoring", icon: Activity },
   { name: "Security", href: "/security", icon: Shield },
+  { name: "Platform UI", href: "/platform-ui", icon: Monitor },
 ];
 
 function LayoutDashboard({ className }: { className?: string }) {
@@ -136,63 +137,152 @@ function Shield({ className }: { className?: string }) {
   );
 }
 
+function Monitor({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+    </svg>
+  );
+}
+
+function Menu({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  );
+}
+
+function X({ className }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+    </svg>
+  );
+}
+
 export function Sidebar() {
   const pathname = usePathname();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
-    <div className="w-64 border-r border-white/10 bg-[#0d1321] flex flex-col">
-      <div className="p-6">
-        <Link href="/" className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
-            <span className="text-white font-bold text-lg">S</span>
+    <>
+      {/* Mobile Header */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-[#0d1321] border-b border-white/10">
+        <div className="flex items-center justify-between p-4">
+          <Link href="/" className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+              <span className="text-white font-bold text-lg">S</span>
+            </div>
+            <div>
+              <h1 className="font-bold text-white text-lg">ShoppDropp</h1>
+              <p className="text-xs text-slate-400">System Blueprint</p>
+            </div>
+          </Link>
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="p-2 rounded-lg bg-white/10 text-white"
+          >
+            {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+        </div>
+
+        {/* Mobile Menu */}
+        {isMobileMenuOpen && (
+          <div className="border-t border-white/10 bg-[#0d1321] max-h-[calc(100vh-80px)] overflow-auto">
+            <nav className="p-4 space-y-1">
+              {navItems.map((item) => {
+                const isActive = pathname === item.href;
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium transition-all duration-200",
+                      isActive
+                        ? "bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-white border border-purple-500/30"
+                        : "text-slate-400 hover:text-white hover:bg-white/5"
+                    )}
+                  >
+                    <Icon className={cn("w-5 h-5", isActive ? "text-purple-400" : "text-slate-500")} />
+                    <span>{item.name}</span>
+                    {isActive && (
+                      <div className="ml-auto w-1.5 h-1.5 rounded-full bg-purple-400" />
+                    )}
+                  </Link>
+                );
+              })}
+            </nav>
+            <div className="p-4 border-t border-white/10">
+              <div className="rounded-xl bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                  <span className="text-xs font-medium text-green-400">System Online</span>
+                </div>
+                <p className="text-xs text-slate-400">v1.0.0 Blueprint</p>
+              </div>
+            </div>
           </div>
-          <div>
-            <h1 className="font-bold text-white text-lg">ShoppDropp</h1>
-            <p className="text-xs text-slate-400">System Blueprint</p>
-          </div>
-        </Link>
+        )}
       </div>
 
-      <Separator className="bg-white/10" />
+      {/* Desktop Sidebar */}
+      <div className="hidden lg:flex w-64 border-r border-white/10 bg-[#0d1321] flex-col h-screen fixed left-0 top-0">
+        <div className="p-6">
+          <Link href="/" className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center">
+              <span className="text-white font-bold text-lg">S</span>
+            </div>
+            <div>
+              <h1 className="font-bold text-white text-lg">ShoppDropp</h1>
+              <p className="text-xs text-slate-400">System Blueprint</p>
+            </div>
+          </Link>
+        </div>
 
-      <ScrollArea className="flex-1 py-4">
-        <nav className="px-3 space-y-1">
-          {navItems.map((item) => {
-            const isActive = pathname === item.href;
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
-                  isActive
-                    ? "bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-white border border-purple-500/30"
-                    : "text-slate-400 hover:text-white hover:bg-white/5"
-                )}
-              >
-                <Icon className={cn("w-5 h-5", isActive ? "text-purple-400" : "text-slate-500")} />
-                <span>{item.name}</span>
-                {isActive && (
-                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-purple-400" />
-                )}
-              </Link>
-            );
-          })}
-        </nav>
-      </ScrollArea>
+        <Separator className="bg-white/10" />
 
-      <Separator className="bg-white/10" />
+        <ScrollArea className="flex-1 py-4">
+          <nav className="px-3 space-y-1">
+            {navItems.map((item) => {
+              const isActive = pathname === item.href;
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200",
+                    isActive
+                      ? "bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-white border border-purple-500/30"
+                      : "text-slate-400 hover:text-white hover:bg-white/5"
+                  )}
+                >
+                  <Icon className={cn("w-5 h-5", isActive ? "text-purple-400" : "text-slate-500")} />
+                  <span>{item.name}</span>
+                  {isActive && (
+                    <div className="ml-auto w-1.5 h-1.5 rounded-full bg-purple-400" />
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
+        </ScrollArea>
 
-      <div className="p-4">
-        <div className="rounded-xl bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-            <span className="text-xs font-medium text-green-400">System Online</span>
+        <Separator className="bg-white/10" />
+
+        <div className="p-4">
+          <div className="rounded-xl bg-gradient-to-br from-purple-500/10 to-pink-500/10 border border-purple-500/20 p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+              <span className="text-xs font-medium text-green-400">System Online</span>
+            </div>
+            <p className="text-xs text-slate-400">v1.0.0 Blueprint</p>
           </div>
-          <p className="text-xs text-slate-400">v1.0.0 Blueprint</p>
         </div>
       </div>
-    </div>
+    </>
   );
 }
