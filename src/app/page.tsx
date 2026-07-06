@@ -3,28 +3,28 @@ import { Badge } from "@/components/ui/badge";
 
 export default function Dashboard() {
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-4 md:p-6 lg:p-8 space-y-6 md:space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white mb-2">ShoppDropp Blueprint</h1>
-          <p className="text-slate-400">Autonomous eCommerce Operating System - Technical Specification</p>
+          <h1 className="text-2xl md:text-3xl font-bold text-white mb-2">ShoppDropp Blueprint</h1>
+          <p className="text-slate-400 text-sm md:text-base">Autonomous eCommerce Operating System - Technical Specification</p>
         </div>
-        <Badge className="bg-green-500/20 text-green-400 border-green-500/30 px-4 py-1.5">
+        <Badge className="bg-green-500/20 text-green-400 border-green-500/30 px-4 py-1.5 w-fit">
           Production Ready
         </Badge>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="System Modules" value="14" subtitle="Core Components" color="purple" />
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+        <StatCard title="System Modules" value="15" subtitle="Core Components" color="purple" />
         <StatCard title="API Endpoints" value="200+" subtitle="REST Endpoints" color="blue" />
         <StatCard title="Database Tables" value="25+" subtitle="Supabase Schema" color="pink" />
         <StatCard title="Job Types" value="30+" subtitle="Worker Pipeline" color="orange" />
       </div>
 
       {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Architecture Overview */}
         <Card className="lg:col-span-2 bg-slate-900/50 border-white/10">
           <CardHeader>
@@ -43,7 +43,7 @@ export default function Dashboard() {
           <CardHeader>
             <CardTitle className="text-white">Tech Stack</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="space-y-2 md:space-y-3">
             <TechBadge name="Next.js 15" category="Frontend" />
             <TechBadge name="NestJS" category="Backend" />
             <TechBadge name="Supabase" category="Database" />
@@ -55,7 +55,7 @@ export default function Dashboard() {
       </div>
 
       {/* Feature Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
         <FeatureCard
           title="Project System"
           description="Complete project lifecycle management with wizard-based onboarding"
@@ -100,7 +100,7 @@ export default function Dashboard() {
           <CardTitle className="text-white">System Integration Flow</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap items-center justify-center gap-4 p-6">
+          <div className="flex flex-wrap items-center justify-center gap-2 md:gap-4 p-4 md:p-6">
             <IntegrationNode name="User" type="start" />
             <Arrow />
             <IntegrationNode name="Dashboard" type="app" />
@@ -131,9 +131,9 @@ function StatCard({ title, value, subtitle, color }: { title: string; value: str
 
   return (
     <Card className={`bg-gradient-to-br ${colorClasses[color]} border`}>
-      <CardContent className="p-6">
-        <p className="text-slate-400 text-sm">{title}</p>
-        <p className="text-3xl font-bold text-white mt-1">{value}</p>
+      <CardContent className="p-4 md:p-6">
+        <p className="text-slate-400 text-xs md:text-sm">{title}</p>
+        <p className="text-2xl md:text-3xl font-bold text-white mt-1">{value}</p>
         <p className="text-xs text-slate-500 mt-1">{subtitle}</p>
       </CardContent>
     </Card>
@@ -151,13 +151,13 @@ function ArchitectureFlow() {
   ];
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2 md:space-y-3">
       {layers.map((layer, i) => (
-        <div key={i} className="flex items-center gap-4">
-          <div className={`w-3 h-3 rounded-full bg-${layer.color}-500`} />
-          <div className="flex-1 p-3 rounded-lg bg-white/5 border border-white/10">
-            <div className="flex items-center justify-between">
-              <span className="text-white font-medium">{layer.name}</span>
+        <div key={i} className="flex items-center gap-3 md:gap-4">
+          <div className={`w-2.5 h-2.5 md:w-3 md:h-3 rounded-full bg-${layer.color}-500 flex-shrink-0`} />
+          <div className="flex-1 p-2.5 md:p-3 rounded-lg bg-white/5 border border-white/10">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+              <span className="text-white font-medium text-sm">{layer.name}</span>
               <span className="text-xs text-slate-400">{layer.desc}</span>
             </div>
           </div>
@@ -169,8 +169,8 @@ function ArchitectureFlow() {
 
 function TechBadge({ name, category }: { name: string; category: string }) {
   return (
-    <div className="flex items-center justify-between p-3 rounded-lg bg-white/5">
-      <span className="text-white font-medium">{name}</span>
+    <div className="flex items-center justify-between p-2.5 md:p-3 rounded-lg bg-white/5">
+      <span className="text-white font-medium text-sm">{name}</span>
       <span className="text-xs text-slate-400">{category}</span>
     </div>
   );
@@ -179,13 +179,13 @@ function TechBadge({ name, category }: { name: string; category: string }) {
 function FeatureCard({ title, description, icon, status }: { title: string; description: string; icon: string; status: string }) {
   return (
     <Card className="bg-slate-900/50 border-white/10 card-hover">
-      <CardContent className="p-6">
-        <div className="flex items-start justify-between mb-4">
-          <span className="text-3xl">{icon}</span>
-          <Badge className="bg-green-500/20 text-green-400 border-green-500/30">{status}</Badge>
+      <CardContent className="p-4 md:p-6">
+        <div className="flex items-start justify-between mb-3 md:mb-4">
+          <span className="text-2xl md:text-3xl">{icon}</span>
+          <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">{status}</Badge>
         </div>
-        <h3 className="text-white font-semibold mb-2">{title}</h3>
-        <p className="text-sm text-slate-400">{description}</p>
+        <h3 className="text-white font-semibold mb-1.5 md:mb-2 text-sm md:text-base">{title}</h3>
+        <p className="text-xs md:text-sm text-slate-400">{description}</p>
       </CardContent>
     </Card>
   );
@@ -202,7 +202,7 @@ function IntegrationNode({ name, type }: { name: string; type: string }) {
   };
 
   return (
-    <div className={`px-4 py-2 rounded-lg border ${colors[type]} text-sm font-medium`}>
+    <div className={`px-3 py-1.5 md:px-4 md:py-2 rounded-lg border ${colors[type]} text-xs md:text-sm font-medium`}>
       {name}
     </div>
   );
@@ -210,7 +210,7 @@ function IntegrationNode({ name, type }: { name: string; type: string }) {
 
 function Arrow() {
   return (
-    <svg className="w-6 h-6 text-slate-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <svg className="w-4 h-4 md:w-6 md:h-6 text-slate-600 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
     </svg>
   );
