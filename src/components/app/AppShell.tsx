@@ -131,7 +131,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile Sidebar */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetTrigger asChild className="lg:hidden">
+        <SheetTrigger className="lg:hidden">
           <Button
             variant="ghost"
             size="icon"
