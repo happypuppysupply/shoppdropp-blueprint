@@ -2385,6 +2385,27 @@ function AITasks({ onNavigate, currentStore }: any) {
   );
 }
 
+function AITemplates({ onNavigate, currentStore }: any) {
+  return (
+    <div className="h-full flex bg-[#08080c]">
+      <Sidebar activeId="ai-agent" onNavigate={onNavigate} />
+      <div className="flex-1 flex flex-col min-h-0">
+        <Header title="AI Templates" currentStore={currentStore} showStoreSelector={false} />
+        <div className="flex-1 p-4 overflow-auto">
+          <button onClick={() => onNavigate("ai-agent")} className="mb-4 px-3 py-1.5 rounded-lg bg-white/5 text-white text-xs border border-white/10 hover:bg-white/10 transition-colors">← Back</button>
+          <div className="grid grid-cols-2 gap-4">
+            {["Product Description", "Ad Copy", "Email Sequence", "Blog Post"].map(template => (
+              <div key={template} className="p-4 rounded-xl bg-white/5 border border-white/5 text-center">
+                <p className="text-white text-sm">{template}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AutomationScreen({ onNavigate, currentStore }: any) {
   return (
     <div className="h-full flex bg-[#08080c]">
