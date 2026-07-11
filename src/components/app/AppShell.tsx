@@ -97,11 +97,12 @@ function Sidebar({ className }: { className?: string }) {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 bg-[#111118] border-white/10">
-            <DropdownMenuItem asChild>
-              <Link href="/app/settings" className="text-slate-300 focus:text-white focus:bg-white/5">
-                <Settings className="w-4 h-4 mr-2" />
-                Settings
-              </Link>
+            <DropdownMenuItem
+              onClick={() => window.location.href = '/app/settings'}
+              className="text-slate-300 focus:text-white focus:bg-white/5"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-white/10" />
             <DropdownMenuItem
