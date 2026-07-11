@@ -83,7 +83,7 @@ function Sidebar({ className }: { className?: string }) {
       {/* User */}
       <div className="p-4 border-t border-white/5">
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+          <DropdownMenuTrigger>
             <button className="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-white/5 transition-colors">
               <Avatar className="w-8 h-8 bg-violet-500/20">
                 <AvatarFallback className="bg-violet-500/20 text-violet-300 text-xs">

@@ -2482,6 +2482,20 @@ function AutomationEdit({ onNavigate, currentStore }: any) {
   );
 }
 
+function AutomationLogs({ onNavigate, currentStore }: any) {
+  return (
+    <div className="h-full flex bg-[#08080c]">
+      <Sidebar activeId="automation" onNavigate={onNavigate} />
+      <div className="flex-1 flex flex-col min-h-0">
+        <Header title="Automation Logs" currentStore={currentStore} showStoreSelector={false} />
+        <div className="flex-1 p-4 overflow-auto">
+          <p className="text-slate-400 text-sm">No logs yet.</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function WorkflowsScreen({ onNavigate, currentStore }: any) {
   return (
     <div className="h-full flex bg-[#08080c]">
