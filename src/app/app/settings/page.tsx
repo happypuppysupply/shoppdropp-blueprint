@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { useAuth } from '@/components/auth/AuthProvider'
+import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
 import { Save, User, Bell, Shield } from 'lucide-react'
 
