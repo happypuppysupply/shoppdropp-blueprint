@@ -1,21 +1,21 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Sidebar } from "@/components/sidebar";
+import { AuthProvider } from "@/components/auth/AuthProvider";
 
-const inter = Inter({
-  variable: "--font-inter",
+const geistSans = Geist({
+  variable: "--font-geist-sans",
   subsets: ["latin"],
 });
 
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-mono",
+const geistMono = Geist_Mono({
+  variable: "--font-geist-mono",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "ShoppDropp - System Blueprint",
-  description: "Autonomous eCommerce Operating System - Technical Blueprint Interface",
+  title: "ShoppDropp - Autonomous Dropshipping Platform",
+  description: "AI-powered dropshipping platform with automated store creation, ad management, and product sourcing.",
 };
 
 export default function RootLayout({
@@ -24,16 +24,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <body
-        className={`${inter.variable} ${jetbrainsMono.variable} antialiased font-sans`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#050508] text-white`}
       >
-        <div className="flex min-h-screen bg-[#0a0a0f]">
-          <Sidebar />
-          <main className="flex-1 lg:ml-[280px] pt-[72px] lg:pt-0 overflow-auto">
-            {children}
-          </main>
-        </div>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );
