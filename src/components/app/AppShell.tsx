@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useAuth } from '@/components/auth/AuthProvider'
+import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
-import { ShoppDroppLogo } from '@/components/logo'
+import { ShoppDroppLogo } from '@/components/Logo'
 import {
   LayoutDashboard,
   Store,
@@ -83,7 +83,7 @@ function Sidebar({ className }: { className?: string }) {
       {/* User */}
       <div className="p-4 border-t border-white/5">
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+          <DropdownMenuTrigger>
             <button className="flex items-center gap-3 w-full p-2 rounded-lg hover:bg-white/5 transition-colors">
               <Avatar className="w-8 h-8 bg-violet-500/20">
                 <AvatarFallback className="bg-violet-500/20 text-violet-300 text-xs">
@@ -97,11 +97,12 @@ function Sidebar({ className }: { className?: string }) {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 bg-[#111118] border-white/10">
-            <DropdownMenuItem asChild>
-              <Link href="/app/settings" className="text-slate-300 focus:text-white focus:bg-white/5">
-                <Settings className="w-4 h-4 mr-2" />
-                Settings
-              </Link>
+            <DropdownMenuItem
+              onClick={() => window.location.href = '/app/settings'}
+              className="text-slate-300 focus:text-white focus:bg-white/5"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Settings
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-white/10" />
             <DropdownMenuItem
@@ -130,7 +131,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* Mobile Sidebar */}
       <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-        <SheetTrigger asChild className="lg:hidden">
+        <SheetTrigger className="lg:hidden">
           <Button
             variant="ghost"
             size="icon"

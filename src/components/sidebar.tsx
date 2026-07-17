@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ShoppDroppLogo, ShoppDroppLogoSmall, ShoppDroppText } from "./logo";
+import { ShoppDroppLogo, ShoppDroppText } from "./Logo";
 
 const navItems = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -171,7 +171,7 @@ export function Sidebar() {
       <div className="lg:hidden fixed top-0 left-0 right-0 z-50 bg-[#0a0a0f]/95 backdrop-blur-xl border-b border-white/10">
         <div className="flex items-center justify-between p-4">
           <Link href="/" className="flex items-center gap-3">
-            <ShoppDroppLogoSmall className="w-9 h-9" />
+            <ShoppDroppLogo className="w-9 h-9" />
             <ShoppDroppText className="text-lg" />
           </Link>
           <button
