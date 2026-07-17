@@ -2393,10 +2393,16 @@ function AITemplates({ onNavigate, currentStore }: any) {
         <Header title="AI Templates" currentStore={currentStore} showStoreSelector={false} />
         <div className="flex-1 p-4 overflow-auto">
           <button onClick={() => onNavigate("ai-agent")} className="mb-4 px-3 py-1.5 rounded-lg bg-white/5 text-white text-xs border border-white/10 hover:bg-white/10 transition-colors">← Back</button>
-          <div className="grid grid-cols-2 gap-4">
-            {["Product Description", "Ad Copy", "Email Sequence", "Blog Post"].map(template => (
-              <div key={template} className="p-4 rounded-xl bg-white/5 border border-white/5 text-center">
-                <p className="text-white text-sm">{template}</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {[
+              {name:"Product Description", desc:"Generate SEO-optimized product descriptions"},
+              {name:"Ad Copy", desc:"Create compelling ad copy for Meta Ads"},
+              {name:"Email Sequence", desc:"Abandoned cart and welcome sequences"},
+              {name:"Blog Post", desc:"Generate blog content for your niche"},
+            ].map(template => (
+              <div key={template.name} className="p-4 rounded-xl bg-white/5 border border-white/5 hover:border-white/10 transition-colors">
+                <p className="text-white text-sm font-medium">{template.name}</p>
+                <p className="text-slate-500 text-xs mt-1">{template.desc}</p>
               </div>
             ))}
           </div>
@@ -2489,7 +2495,21 @@ function AutomationLogs({ onNavigate, currentStore }: any) {
       <div className="flex-1 flex flex-col min-h-0">
         <Header title="Automation Logs" currentStore={currentStore} showStoreSelector={false} />
         <div className="flex-1 p-4 overflow-auto">
-          <p className="text-slate-400 text-sm">No logs yet.</p>
+          <div className="space-y-2">
+            {[
+              {t:"Auto Product Import triggered", time:"2 min ago", status:"success"},
+              {t:"Price Sync completed", time:"1 hour ago", status:"success"},
+              {t:"Inventory check failed", time:"3 hours ago", status:"error"},
+            ].map((log, i) => (
+              <div key={i} className="p-3 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between">
+                <div>
+                  <p className="text-white text-sm">{log.t}</p>
+                  <p className="text-slate-500 text-xs">{log.time}</p>
+                </div>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full ${log.status==="success"?"bg-green-500/15 text-green-400":"bg-red-500/15 text-red-400"}`}>{log.status}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
