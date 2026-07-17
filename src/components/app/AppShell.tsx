@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useAuth } from '@/hooks/useAuth'
+import { useAuth } from '@/components/auth/AuthProvider'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
-import { ShoppDroppLogo } from '@/components/Logo'
+import { ShoppDroppLogo } from '@/components/logo'
 import {
   LayoutDashboard,
   Store,
@@ -97,12 +97,9 @@ function Sidebar({ className }: { className?: string }) {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 bg-[#111118] border-white/10">
-            <DropdownMenuItem
-              onClick={() => window.location.href = '/app/settings'}
-              className="text-slate-300 focus:text-white focus:bg-white/5"
-            >
+            <DropdownMenuItem onClick={() => window.location.href='/app/settings'}>
               <Settings className="w-4 h-4 mr-2" />
-              Settings
+              <span className="text-slate-300">Settings</span>
             </DropdownMenuItem>
             <DropdownMenuSeparator className="bg-white/10" />
             <DropdownMenuItem

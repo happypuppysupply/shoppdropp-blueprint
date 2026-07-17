@@ -52,6 +52,15 @@ export const api = {
     getStatus: (id: string) => api.request(`/workers/${id}/status`),
   },
 
+  // AI
+  ai: {
+    configure: (provider: string, model: string, apiKey: string) =>
+      api.request('/ai-chat/configure', { method: 'POST', body: JSON.stringify({ provider, model, apiKey }) }),
+    chat: (message: string, history: any[]) =>
+      api.request('/ai-chat/chat', { method: 'POST', body: JSON.stringify({ message, conversation_history: history }) }),
+    getContext: () => api.request('/ai-chat/context'),
+  },
+
   // Stripe
   stripe: {
     createCheckout: (plan: string) => 

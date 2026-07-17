@@ -1,22 +1,21 @@
 import { createClient } from '@supabase/supabase-js'
-import { createBrowserClient } from '@supabase/auth-helpers-nextjs'
 
-const isBuild = typeof window === 'undefined' && process.env.NODE_ENV === 'production'
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-// Graceful client for SSR/build - prevents crash when env vars missing
-export const supabase = createBrowserClient(supabaseUrl, supabaseAnonKey)
+// Browser client for client-side usage
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+  },
+})
 
+// Admin client for server-side operations
 export const supabaseAdmin = createClient(
   supabaseUrl,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || supabaseAnonKey,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  }
+  process.env.SUPABASE_SERVICE_ROLE_KEY || supabaseAnonKey
 )
 
 export type User = Awaited<ReturnType<typeof supabase.auth.getUser>>['data']['user']
