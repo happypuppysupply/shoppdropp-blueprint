@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import type { User, AuthError, Session, SupabaseClient } from "@supabase/supabase-js";
-import { createBrowserClient } from "@supabase/ssr";
+import { getSupabaseClient } from "@/lib/supabase-client";
 
 interface AuthContextType {
   user: User | null;
@@ -28,29 +28,6 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-// Lazy initialization of Supabase client with cookie-based storage
-// This ensures PKCE code verifier persists across OAuth redirects
-function getSupabaseClient(): SupabaseClient | null {
-  if (typeof window === "undefined") return null;
-  
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  
-  if (!url || !key) {
-    console.error("Missing Supabase environment variables");
-    return null;
-  }
-  
-  return createBrowserClient(url, key, {
-    cookieOptions: {
-      name: "sb-auth-token",
-      path: "/",
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-    },
-  });
-}
-
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,9 +35,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   // Initialize client only on mount
   useEffect(() => {
-    supabaseRef.current = getSupabaseClient();
-    
-    if (!supabaseRef.current) {
+    try {
+      supabaseRef.current = getSupabaseClient();
+    } catch (err) {
+      console.error("Failed to initialize Supabase client:", err);
       setIsLoading(false);
       return;
     }

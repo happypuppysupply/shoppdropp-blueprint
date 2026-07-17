@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { createBrowserClient } from "@supabase/ssr";
+import { getSupabaseClient } from "@/lib/supabase-client";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
 
@@ -30,18 +30,15 @@ function AuthCallbackContent() {
   const supabaseRef = useRef<SupabaseClient | null>(null);
 
   useEffect(() => {
-    // Initialize Supabase client in browser only
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    
-    if (!url || !key) {
+    // Initialize Supabase client with shared cookie-based config
+    try {
+      supabaseRef.current = getSupabaseClient();
+    } catch (err) {
       setStatus("error");
       setMessage("Configuration error: Missing Supabase credentials");
       setTimeout(() => router.push("/"), 3000);
       return;
     }
-    
-    supabaseRef.current = createBrowserClient(url, key);
 
     const handleAuthCallback = async () => {
       if (!supabaseRef.current) return;
