@@ -28,7 +28,8 @@ interface AuthProviderProps {
   children: ReactNode;
 }
 
-// Lazy initialization of Supabase client
+// Lazy initialization of Supabase client with cookie-based storage
+// This ensures PKCE code verifier persists across OAuth redirects
 function getSupabaseClient(): SupabaseClient | null {
   if (typeof window === "undefined") return null;
   
@@ -40,7 +41,14 @@ function getSupabaseClient(): SupabaseClient | null {
     return null;
   }
   
-  return createBrowserClient(url, key);
+  return createBrowserClient(url, key, {
+    cookieOptions: {
+      name: "sb-auth-token",
+      path: "/",
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    },
+  });
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
