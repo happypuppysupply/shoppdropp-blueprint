@@ -1,14 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { useAuth } from './AuthProvider'
+import { useAuth } from '@/hooks/useAuth'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ShoppDroppLogo } from '@/components/logo'
+import { ShoppDroppLogo } from '@/components/Logo'
 
 export function LoginForm() {
-  const { signIn, signUp, signInWithGoogle } = useAuth()
+  const { signInWithEmail, signUpWithEmail, signInWithGoogle } = useAuth()
   const [isLogin, setIsLogin] = useState(true)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -23,10 +23,10 @@ export function LoginForm() {
     setMessage('')
 
     if (isLogin) {
-      const { error } = await signIn(email, password)
+      const { error } = await signInWithEmail(email, password)
       if (error) setError(error.message)
     } else {
-      const { error } = await signUp(email, password)
+      const { error } = await signUpWithEmail(email, password)
       if (error) {
         setError(error.message)
       } else {
