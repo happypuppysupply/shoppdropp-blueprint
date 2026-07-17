@@ -223,7 +223,7 @@ export function AuthModal({ isOpen, onClose, defaultMode = "signin" }: AuthModal
                           placeholder="Password"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          required={mode !== "magic"}
+                          required
                           minLength={6}
                           className="w-full rounded-xl border border-white/10 bg-white/5 py-3 pl-10 pr-10 text-sm text-white placeholder-white/30 outline-none transition-all focus:border-violet-500/50 focus:ring-2 focus:ring-violet-500/20"
                         />
