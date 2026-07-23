@@ -1,36 +1,62 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X, Triangle, Loader2, ChevronRight, CheckCircle, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { api } from '@/lib/api'
 
+interface VercelCredentials {
+  token?: string
+  team_id?: string
+}
+
 interface VercelConnectModalProps {
+  mode?: 'create' | 'edit'
+  existingCredentials?: VercelCredentials
   onClose: () => void
   onConnected: () => void
 }
 
-export function VercelConnectModal({ onClose, onConnected }: VercelConnectModalProps) {
-  const [step, setStep] = useState<'intro' | 'token'>('intro')
+export function VercelConnectModal({ 
+  mode = 'create',
+  existingCredentials,
+  onClose, 
+  onConnected 
+}: VercelConnectModalProps) {
+  const isEditMode = mode === 'edit'
+  const [step, setStep] = useState<'intro' | 'token'>(isEditMode ? 'token' : 'intro')
   const [token, setToken] = useState('')
   const [teamId, setTeamId] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [connected, setConnected] = useState(false)
+  const [showToken, setShowToken] = useState(false)
+
+  // Pre-fill existing credentials when in edit mode
+  useEffect(() => {
+    if (isEditMode && existingCredentials) {
+      setTeamId(existingCredentials.team_id || '')
+      // Token is masked - only set if it's not the mask value
+      if (existingCredentials.token && existingCredentials.token !== '***') {
+        setToken(existingCredentials.token)
+      }
+    }
+  }, [isEditMode, existingCredentials])
 
   const handleConnect = async () => {
     setError('')
     setLoading(true)
 
     try {
+      const method = isEditMode ? 'PUT' : 'POST'
       await api.request('/user/vercel', {
-        method: 'POST',
+        method,
         body: JSON.stringify({ token, team_id: teamId || null }),
       })
       setConnected(true)
       onConnected()
     } catch (err: any) {
-      setError(err.message || 'Failed to connect Vercel')
+      setError(err.message || `Failed to ${isEditMode ? 'update' : 'connect'} Vercel`)
     } finally {
       setLoading(false)
     }
@@ -41,9 +67,13 @@ export function VercelConnectModal({ onClose, onConnected }: VercelConnectModalP
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
         <div className="w-full max-w-md bg-[#111118] rounded-2xl border border-white/10 shadow-xl p-8 text-center">
           <CheckCircle className="w-16 h-16 text-white mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-white mb-2">Vercel Connected!</h2>
+          <h2 className="text-2xl font-bold text-white mb-2">
+            Vercel {isEditMode ? 'Updated' : 'Connected'}!
+          </h2>
           <p className="text-slate-300 mb-6">
-            AI can now deploy websites, apps, and landing pages instantly.
+            {isEditMode
+              ? 'Your Vercel credentials have been updated successfully.'
+              : 'AI can now deploy websites, apps, and landing pages instantly.'}
           </p>
           <Button onClick={onClose} className="bg-gradient-to-r from-violet-600 to-pink-600">
             Done
@@ -61,14 +91,16 @@ export function VercelConnectModal({ onClose, onConnected }: VercelConnectModalP
             <div className="p-2 bg-white rounded-lg">
               <Triangle className="w-5 h-5 text-black fill-black" />
             </div>
-            <h2 className="text-xl font-semibold text-white">Connect Vercel</h2>
+            <h2 className="text-xl font-semibold text-white">
+              {isEditMode ? 'Edit Vercel' : 'Connect Vercel'}
+            </h2>
           </div>
           <button onClick={onClose} className="p-2 text-slate-400 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {step === 'intro' && (
+        {step === 'intro' && !isEditMode && (
           <div className="space-y-4">
             <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
               <h3 className="font-semibold text-white mb-2">Why connect Vercel?</h3>
@@ -101,26 +133,45 @@ export function VercelConnectModal({ onClose, onConnected }: VercelConnectModalP
 
         {step === 'token' && (
           <form onSubmit={(e) => { e.preventDefault(); handleConnect() }} className="space-y-4">
-            <button
-              type="button"
-              onClick={() => setStep('intro')}
-              className="text-sm text-slate-400 hover:text-slate-300"
-            >
-              ← Back
-            </button>
+            {!isEditMode && (
+              <button
+                type="button"
+                onClick={() => setStep('intro')}
+                className="text-sm text-slate-400 hover:text-slate-300"
+              >
+                ← Back
+              </button>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1">
                 Vercel Token
+                {isEditMode && (
+                  <span className="text-xs text-slate-500 ml-2">(leave blank to keep existing)</span>
+                )}
               </label>
-              <input
-                type="password"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                className="w-full px-4 py-2 bg-white/5 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-white font-mono text-sm"
-                placeholder="vercel_token_xxx"
-                required
-              />
+              <div className="relative">
+                <input
+                  type={showToken ? 'text' : 'password'}
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  className="w-full px-4 py-2 bg-white/5 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-white font-mono text-sm pr-20"
+                  placeholder={isEditMode ? '••••••••••••••••' : "vercel_token_xxx"}
+                  required={!isEditMode}
+                />
+                {isEditMode && token === '' && (
+                  <span className="absolute right-10 top-1/2 -translate-y-1/2 text-xs text-slate-500">
+                    ***
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowToken(!showToken)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-white"
+                >
+                  {showToken ? 'Hide' : 'Show'}
+                </button>
+              </div>
             </div>
 
             <div>
@@ -150,7 +201,7 @@ export function VercelConnectModal({ onClose, onConnected }: VercelConnectModalP
               disabled={loading}
               className="w-full bg-white text-black hover:bg-gray-200"
             >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Connect Vercel'}
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (isEditMode ? 'Update Vercel' : 'Connect Vercel')}
             </Button>
           </form>
         )}

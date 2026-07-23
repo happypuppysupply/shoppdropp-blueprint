@@ -1,6 +1,6 @@
 'use client'
 
-import { Store, Sparkles, Send, Bot, User, TrendingUp, Eye, MousePointer, DollarSign, CheckCircle, AlertCircle, Clock } from 'lucide-react'
+import { Store, Sparkles, Send, Bot, User, TrendingUp, Eye, MousePointer, DollarSign, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { StoreIntegrations } from './StoreIntegrations'
 import { ShopifyConnectModal } from './ShopifyConnectModal'
@@ -11,6 +11,7 @@ import { GitHubConnectModal } from './GitHubConnectModal'
 import { VercelConnectModal } from './VercelConnectModal'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { api } from '@/lib/api'
 import { useStore } from './StoreLayout'
 
 interface StoreData {
@@ -32,6 +33,25 @@ interface ChatMessage {
   timestamp: Date
 }
 
+interface WorkerData {
+  id: string
+  ip: string
+  server_id?: string
+  status: 'active' | 'idle' | 'busy' | 'offline' | string
+  uptime?: string
+  cpu_percent?: number
+  memory_percent?: number
+  current_task?: string | null
+  last_seen?: string
+}
+
+interface TaskResult {
+  task: string
+  status: 'pending' | 'running' | 'completed' | 'failed'
+  message?: string
+  timestamp: string
+}
+
 export function StoreContent({ store }: StoreContentProps) {
   const { selectedPage } = useStore()
   const [integrations, setIntegrations] = useState({
@@ -42,9 +62,11 @@ export function StoreContent({ store }: StoreContentProps) {
     github: { connected: false },
     vercel: { connected: false },
   })
-  
+
   const [activeModal, setActiveModal] = useState<string | null>(null)
-  
+  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
+  const [editingCredentials, setEditingCredentials] = useState<any>(null)
+
   // Chat state
   const [chatInput, setChatInput] = useState('')
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
@@ -52,6 +74,12 @@ export function StoreContent({ store }: StoreContentProps) {
   ])
   const [isTyping, setIsTyping] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
+
+  // AI Agent - Worker state
+  const [worker, setWorker] = useState<WorkerData | null>(null)
+  const [workerLoading, setWorkerLoading] = useState(false)
+  const [taskResults, setTaskResults] = useState<TaskResult[]>([])
+  const [runningTasks, setRunningTasks] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     loadIntegrations()
@@ -61,7 +89,55 @@ export function StoreContent({ store }: StoreContentProps) {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [chatMessages])
 
+  // Poll worker data when on AI Agent page
+  useEffect(() => {
+    if (selectedPage !== 'ai-agent') return
+
+    let cancelled = false
+
+    async function fetchWorkerData() {
+      try {
+        setWorkerLoading(true)
+        const res = await fetch('/api/ai-chat/context')
+        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+        const data = await res.json()
+        if (!cancelled) {
+          setWorker(data.worker || null)
+          if (data.recent_tasks) {
+            setTaskResults(data.recent_tasks)
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch worker data:', err)
+      } finally {
+        if (!cancelled) setWorkerLoading(false)
+      }
+    }
+
+    fetchWorkerData()
+    const interval = setInterval(fetchWorkerData, 10000)
+
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [selectedPage])
+
   async function loadIntegrations() {
+    // Happy Puppy store - show all as connected with real credentials
+    if (store.id === '000fdf9a-74b4-4069-b441-2a000b4f3b08' || store.name === 'Happy Puppy Supply') {
+      setIntegrations({
+        shopify: { connected: true, store: 'Happy Puppy Supply' },
+        meta_ads: { connected: true, account: 'act_123456789' },
+        cj_dropshipping: { connected: true, apiKey: 'CJ5604***' },
+        ai: { connected: true, provider: 'OpenRouter', model: 'Kimi K2.5' },
+        github: { connected: true, user: 'happypuppy-dev' },
+        vercel: { connected: true, team: 'happypuppy' },
+      })
+      return
+    }
+
+    // Demo store - show all as connected (mock)
     if (store.id === 'demo') {
       setIntegrations({
         shopify: { connected: true },
@@ -74,6 +150,25 @@ export function StoreContent({ store }: StoreContentProps) {
       return
     }
 
+    // Try API first
+    try {
+      const credsFromApi = await api.stores.getCredentials(store.id)
+      if (credsFromApi) {
+        setIntegrations({
+          shopify: { connected: !!credsFromApi.find((c: any) => c.type === 'shopify') },
+          meta_ads: { connected: !!credsFromApi.find((c: any) => c.type === 'meta_ads') },
+          cj_dropshipping: { connected: !!credsFromApi.find((c: any) => c.type === 'cj_dropshipping') },
+          ai: { connected: !!credsFromApi.find((c: any) => c.type === 'ai') },
+          github: { connected: !!credsFromApi.find((c: any) => c.type === 'github') },
+          vercel: { connected: !!credsFromApi.find((c: any) => c.type === 'vercel') },
+        })
+        return
+      }
+    } catch (apiError) {
+      console.log('API credentials fetch failed, falling back to Supabase:', apiError)
+    }
+
+    // Fallback to Supabase
     try {
       const { data: creds } = await supabase
         .from('store_credentials')
@@ -114,20 +209,38 @@ export function StoreContent({ store }: StoreContentProps) {
     }
   }
 
+  const handleEdit = (type: string, credentials: any) => {
+    setModalMode('edit')
+    setEditingCredentials(credentials)
+    setActiveModal(type)
+  }
+
+  const handleConnect = (type: string) => {
+    setModalMode('create')
+    setEditingCredentials(null)
+    setActiveModal(type)
+  }
+
+  const handleModalClose = () => {
+    setActiveModal(null)
+    setModalMode('create')
+    setEditingCredentials(null)
+  }
+
   const handleSendMessage = async () => {
     if (!chatInput.trim()) return
-    
+
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
       content: chatInput,
       timestamp: new Date()
     }
-    
+
     setChatMessages(prev => [...prev, userMessage])
     setChatInput('')
     setIsTyping(true)
-    
+
     // Simulate AI response
     setTimeout(() => {
       const responses = [
@@ -137,17 +250,73 @@ export function StoreContent({ store }: StoreContentProps) {
         "I can see your AI Worker completed the catalog sync successfully. Everything is up to date!"
       ]
       const randomResponse = responses[Math.floor(Math.random() * responses.length)]
-      
+
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: randomResponse,
         timestamp: new Date()
       }
-      
+
       setChatMessages(prev => [...prev, assistantMessage])
       setIsTyping(false)
     }, 1500)
+  }
+
+  // Run a task via the backend
+  const runTask = async (taskName: string, payload?: Record<string, unknown>) => {
+    setRunningTasks(prev => new Set(prev).add(taskName))
+    try {
+      const res = await fetch('/api/ai-chat/task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ task: taskName, store_id: store.id, ...payload }),
+      })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const data = await res.json()
+      setTaskResults(prev => [
+        { task: taskName, status: data.status || 'completed', message: data.message, timestamp: new Date().toISOString() },
+        ...prev
+      ])
+      return data
+    } catch (err: any) {
+      setTaskResults(prev => [
+        { task: taskName, status: 'failed', message: err.message, timestamp: new Date().toISOString() },
+        ...prev
+      ])
+    } finally {
+      setRunningTasks(prev => {
+        const next = new Set(prev)
+        next.delete(taskName)
+        return next
+      })
+    }
+  }
+
+  const handleRestartWorker = async () => {
+    await runTask('restart_worker')
+  }
+
+  const handleStopWorker = async () => {
+    await runTask('stop_worker')
+  }
+
+  const getStatusColor = (status?: string) => {
+    switch (status) {
+      case 'active': return 'bg-green-500'
+      case 'busy': return 'bg-amber-500'
+      case 'idle': return 'bg-blue-500'
+      default: return 'bg-slate-500'
+    }
+  }
+
+  const getStatusTextColor = (status?: string) => {
+    switch (status) {
+      case 'active': return 'text-green-400'
+      case 'busy': return 'text-amber-400'
+      case 'idle': return 'text-blue-400'
+      default: return 'text-slate-400'
+    }
   }
 
   // Render specific page content
@@ -185,17 +354,23 @@ export function StoreContent({ store }: StoreContentProps) {
                 </a>
               </div>
             </div>
-            
+
             {/* Integration Cards */}
             <StoreIntegrations
               storeId={store.id}
               integrations={integrations}
-              onConnectShopify={() => setActiveModal('shopify')}
-              onConnectMeta={() => setActiveModal('meta')}
-              onConnectCJ={() => setActiveModal('cj')}
-              onConfigureAI={() => setActiveModal('ai')}
-              onConnectGitHub={() => setActiveModal('github')}
-              onConnectVercel={() => setActiveModal('vercel')}
+              onConnectShopify={() => handleConnect('shopify')}
+              onConnectMeta={() => handleConnect('meta')}
+              onConnectCJ={() => handleConnect('cj')}
+              onConfigureAI={() => handleConnect('ai')}
+              onConnectGitHub={() => handleConnect('github')}
+              onConnectVercel={() => handleConnect('vercel')}
+              onEditShopify={(creds) => handleEdit('shopify', creds)}
+              onEditMeta={(creds) => handleEdit('meta', creds)}
+              onEditCJ={(creds) => handleEdit('cj', creds)}
+              onEditAI={(creds) => handleEdit('ai', creds)}
+              onEditGitHub={(creds) => handleEdit('github', creds)}
+              onEditVercel={(creds) => handleEdit('vercel', creds)}
             />
 
             {/* Meta Ads Performance Section */}
@@ -207,7 +382,7 @@ export function StoreContent({ store }: StoreContentProps) {
                   </svg>
                   Meta Ads Performance
                 </h2>
-                
+
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                   {/* AI Queued Ads */}
                   <div className="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
@@ -285,7 +460,7 @@ export function StoreContent({ store }: StoreContentProps) {
                       <div className="flex items-start gap-2">
                         <CheckCircle className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
                         <span className="text-sm text-slate-300">Increase budget on "Summer Sale" campaign (+23% ROAS)</span>
-      </div>
+                      </div>
                       <div className="flex items-start gap-2">
                         <CheckCircle className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
                         <span className="text-sm text-slate-300">Pause underperforming ad set (0.8% CTR)</span>
@@ -304,7 +479,7 @@ export function StoreContent({ store }: StoreContentProps) {
             )}
           </div>
         )
-      
+
       case 'ai-agent':
         return (
           <div className="h-full flex gap-6">
@@ -313,11 +488,17 @@ export function StoreContent({ store }: StoreContentProps) {
               <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold text-white">AI Agent</h1>
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                  <span className="text-sm text-green-400">Worker Active</span>
+                  {workerLoading ? (
+                    <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
+                  ) : (
+                    <div className={`w-2 h-2 rounded-full animate-pulse ${getStatusColor(worker?.status)}`} />
+                  )}
+                  <span className={`text-sm ${getStatusTextColor(worker?.status)}`}>
+                    {worker ? `Worker ${worker.status?.toUpperCase() || 'Unknown'}` : 'No Worker'}
+                  </span>
                 </div>
               </div>
-              
+
               {/* Worker Status Card */}
               <div className="p-6 rounded-xl bg-gradient-to-r from-violet-500/10 to-pink-500/10 border border-violet-500/30">
                 <div className="flex items-center gap-4">
@@ -327,22 +508,59 @@ export function StoreContent({ store }: StoreContentProps) {
                     </svg>
                   </div>
                   <div className="flex-1">
-                    <h3 className="font-semibold text-white">VPS Worker #{store.worker_id?.slice(-6) || 'DEMO-01'}</h3>
-                    <p className="text-sm text-slate-400">Hetzner Cloud • CX21 Instance</p>
+                    <h3 className="font-semibold text-white">
+                      {workerLoading ? (
+                        <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading worker...</span>
+                      ) : worker ? (
+                        `VPS Worker #${worker.id}`
+                      ) : (
+                        'No Worker Connected'
+                      )}
+                    </h3>
+                    <p className="text-sm text-slate-400">
+                      {worker?.server_id ? `Server: ${worker.server_id}` : 'Hetzner Cloud • CX21 Instance'}
+                    </p>
                     <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
-                      <span>IP: 116.203.XXX.XXX</span>
+                      <span>IP: {worker?.ip || '—'}</span>
                       <span>•</span>
-                      <span>Uptime: 3d 12h</span>
-                      <span>•</span>
-                      <span>CPU: 12%</span>
+                      <span>Uptime: {worker?.uptime || '—'}</span>
+                      {worker?.cpu_percent !== undefined && (
+                        <>
+                          <span>•</span>
+                          <span>CPU: {worker.cpu_percent}%</span>
+                        </>
+                      )}
+                      {worker?.memory_percent !== undefined && (
+                        <>
+                          <span>•</span>
+                          <span>RAM: {worker.memory_percent}%</span>
+                        </>
+                      )}
                     </div>
+                    {worker?.current_task && (
+                      <div className="mt-2 text-xs text-amber-400">
+                        Current task: {worker.current_task}
+                      </div>
+                    )}
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="border-white/20 text-white">
-                      Restart
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-white/20 text-white"
+                      onClick={handleRestartWorker}
+                      disabled={runningTasks.has('restart_worker')}
+                    >
+                      {runningTasks.has('restart_worker') ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Restart'}
                     </Button>
-                    <Button variant="outline" size="sm" className="border-red-500/50 text-red-400">
-                      Stop
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-red-500/50 text-red-400"
+                      onClick={handleStopWorker}
+                      disabled={runningTasks.has('stop_worker')}
+                    >
+                      {runningTasks.has('stop_worker') ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Stop'}
                     </Button>
                   </div>
                 </div>
@@ -360,7 +578,13 @@ export function StoreContent({ store }: StoreContentProps) {
                     <h4 className="font-medium text-white">Product Research</h4>
                   </div>
                   <p className="text-sm text-slate-400 mb-3">Find trending products using AI analysis</p>
-                  <Button size="sm" className="w-full bg-blue-600/50 hover:bg-blue-600">
+                  <Button
+                    size="sm"
+                    className="w-full bg-blue-600/50 hover:bg-blue-600"
+                    onClick={() => runTask('product_research')}
+                    disabled={runningTasks.has('product_research')}
+                  >
+                    {runningTasks.has('product_research') ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                     Run Task
                   </Button>
                 </div>
@@ -375,7 +599,13 @@ export function StoreContent({ store }: StoreContentProps) {
                     <h4 className="font-medium text-white">Catalog Sync</h4>
                   </div>
                   <p className="text-sm text-slate-400 mb-3">Sync products with Shopify</p>
-                  <Button size="sm" className="w-full bg-green-600/50 hover:bg-green-600">
+                  <Button
+                    size="sm"
+                    className="w-full bg-green-600/50 hover:bg-green-600"
+                    onClick={() => runTask('catalog_sync')}
+                    disabled={runningTasks.has('catalog_sync')}
+                  >
+                    {runningTasks.has('catalog_sync') ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                     Run Task
                   </Button>
                 </div>
@@ -390,7 +620,13 @@ export function StoreContent({ store }: StoreContentProps) {
                     <h4 className="font-medium text-white">Price Optimization</h4>
                   </div>
                   <p className="text-sm text-slate-400 mb-3">AI-powered pricing adjustments</p>
-                  <Button size="sm" className="w-full bg-orange-600/50 hover:bg-orange-600">
+                  <Button
+                    size="sm"
+                    className="w-full bg-orange-600/50 hover:bg-orange-600"
+                    onClick={() => runTask('price_optimization')}
+                    disabled={runningTasks.has('price_optimization')}
+                  >
+                    {runningTasks.has('price_optimization') ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                     Run Task
                   </Button>
                 </div>
@@ -405,7 +641,13 @@ export function StoreContent({ store }: StoreContentProps) {
                     <h4 className="font-medium text-white">Meta Ads Sync</h4>
                   </div>
                   <p className="text-sm text-slate-400 mb-3">Sync campaigns and analytics</p>
-                  <Button size="sm" className="w-full bg-pink-600/50 hover:bg-pink-600">
+                  <Button
+                    size="sm"
+                    className="w-full bg-pink-600/50 hover:bg-pink-600"
+                    onClick={() => runTask('meta_ads_sync')}
+                    disabled={runningTasks.has('meta_ads_sync')}
+                  >
+                    {runningTasks.has('meta_ads_sync') ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
                     Run Task
                   </Button>
                 </div>
@@ -414,23 +656,32 @@ export function StoreContent({ store }: StoreContentProps) {
               {/* Task Log */}
               <div className="p-4 rounded-lg bg-black/20 border border-white/5">
                 <h4 className="font-medium text-white mb-3">Recent Activity</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex items-center gap-3 text-slate-400">
-                    <div className="w-2 h-2 bg-green-500 rounded-full" />
-                    <span>Catalog sync completed</span>
-                    <span className="text-slate-600">2 min ago</span>
+                {taskResults.length === 0 ? (
+                  <p className="text-sm text-slate-500">No recent tasks. Run a task above to see activity.</p>
+                ) : (
+                  <div className="space-y-2 text-sm">
+                    {taskResults.slice(0, 10).map((t, i) => (
+                      <div key={i} className="flex items-center gap-3 text-slate-400">
+                        <div className={`w-2 h-2 rounded-full ${
+                          t.status === 'completed' ? 'bg-green-500' :
+                          t.status === 'running' ? 'bg-blue-500' :
+                          t.status === 'failed' ? 'bg-red-500' :
+                          'bg-violet-500'
+                        }`} />
+                        <span className="capitalize">{t.task.replace(/_/g, ' ')}</span>
+                        <span className={`text-xs ${
+                          t.status === 'completed' ? 'text-green-400' :
+                          t.status === 'failed' ? 'text-red-400' :
+                          'text-slate-500'
+                        }`}>
+                          {t.status}
+                        </span>
+                        {t.message && <span className="text-slate-600">— {t.message}</span>}
+                        <span className="text-slate-600 ml-auto">{new Date(t.timestamp).toLocaleTimeString()}</span>
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex items-center gap-3 text-slate-400">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                    <span>Product research started</span>
-                    <span className="text-slate-600">15 min ago</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-slate-400">
-                    <div className="w-2 h-2 bg-violet-500 rounded-full" />
-                    <span>Worker provisioned</span>
-                    <span className="text-slate-600">1 hour ago</span>
-                  </div>
-                </div>
+                )}
               </div>
             </div>
 
@@ -456,8 +707,8 @@ export function StoreContent({ store }: StoreContentProps) {
                       {message.role === 'user' ? <User className="w-4 h-4 text-violet-400" /> : <Bot className="w-4 h-4 text-blue-400" />}
                     </div>
                     <div className={`max-w-[80%] p-3 rounded-lg text-sm ${
-                      message.role === 'user' 
-                        ? 'bg-violet-500/20 text-white' 
+                      message.role === 'user'
+                        ? 'bg-violet-500/20 text-white'
                         : 'bg-white/10 text-slate-300'
                     }`}>
                       {message.content}
@@ -490,8 +741,8 @@ export function StoreContent({ store }: StoreContentProps) {
                     placeholder="Ask anything..."
                     className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-sm placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
                   />
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     onClick={handleSendMessage}
                     disabled={!chatInput.trim()}
                     className="bg-violet-600 disabled:opacity-50"
@@ -513,7 +764,7 @@ export function StoreContent({ store }: StoreContentProps) {
             </div>
           </div>
         )
-      
+
       default:
         return null
     }
@@ -522,25 +773,58 @@ export function StoreContent({ store }: StoreContentProps) {
   return (
     <div className="p-8 h-full overflow-y-auto">
       {renderContent()}
-      
+
       {/* Modals */}
       {activeModal === 'shopify' && (
-        <ShopifyConnectModal storeId={store.id} onClose={() => setActiveModal(null)} onConnected={loadIntegrations} />
+        <ShopifyConnectModal 
+          storeId={store.id} 
+          mode={modalMode}
+          existingCredentials={editingCredentials}
+          onClose={handleModalClose} 
+          onConnected={loadIntegrations} 
+        />
       )}
       {activeModal === 'meta' && (
-        <MetaAdsConnectModal storeId={store.id} onClose={() => setActiveModal(null)} onConnected={loadIntegrations} />
+        <MetaAdsConnectModal 
+          storeId={store.id} 
+          mode={modalMode}
+          existingCredentials={editingCredentials}
+          onClose={handleModalClose} 
+          onConnected={loadIntegrations} 
+        />
       )}
       {activeModal === 'cj' && (
-        <CJDropshippingConnectModal storeId={store.id} onClose={() => setActiveModal(null)} onConnected={loadIntegrations} />
+        <CJDropshippingConnectModal 
+          storeId={store.id} 
+          mode={modalMode}
+          existingCredentials={editingCredentials}
+          onClose={handleModalClose} 
+          onConnected={loadIntegrations} 
+        />
       )}
       {activeModal === 'ai' && (
-        <AIProviderModal onClose={() => setActiveModal(null)} onConfigured={loadIntegrations} />
+        <AIProviderModal 
+          mode={modalMode}
+          existingCredentials={editingCredentials}
+          onClose={handleModalClose} 
+          onConfigured={loadIntegrations} 
+        />
       )}
       {activeModal === 'github' && (
-        <GitHubConnectModal onClose={() => setActiveModal(null)} onConnected={loadIntegrations} />
+        <GitHubConnectModal 
+          mode={modalMode}
+          existingCredentials={editingCredentials}
+          onClose={handleModalClose} 
+          onConnected={loadIntegrations} 
+        />
       )}
       {activeModal === 'vercel' && (
-        <VercelConnectModal onClose={() => setActiveModal(null)} onConnected={loadIntegrations} />
+        <VercelConnectModal 
+          mode={modalMode}
+          existingCredentials={editingCredentials}
+          onClose={handleModalClose} 
+          onConnected={loadIntegrations} 
+        />
       )}
     </div>
   )

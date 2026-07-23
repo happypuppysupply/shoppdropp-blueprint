@@ -1,36 +1,62 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X, Code2, Loader2, ChevronRight, CheckCircle, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { api } from '@/lib/api'
 
+interface GitHubCredentials {
+  username?: string
+  token?: string
+}
+
 interface GitHubConnectModalProps {
+  mode?: 'create' | 'edit'
+  existingCredentials?: GitHubCredentials
   onClose: () => void
   onConnected: () => void
 }
 
-export function GitHubConnectModal({ onClose, onConnected }: GitHubConnectModalProps) {
-  const [step, setStep] = useState<'intro' | 'token'>('intro')
+export function GitHubConnectModal({ 
+  mode = 'create', 
+  existingCredentials,
+  onClose, 
+  onConnected 
+}: GitHubConnectModalProps) {
+  const isEditMode = mode === 'edit'
+  const [step, setStep] = useState<'intro' | 'token'>(isEditMode ? 'token' : 'intro')
   const [token, setToken] = useState('')
   const [username, setUsername] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [connected, setConnected] = useState(false)
+  const [showToken, setShowToken] = useState(false)
+
+  // Pre-fill existing credentials when in edit mode
+  useEffect(() => {
+    if (isEditMode && existingCredentials) {
+      setUsername(existingCredentials.username || '')
+      // Token is masked - only set if it's not the mask value
+      if (existingCredentials.token && existingCredentials.token !== '***') {
+        setToken(existingCredentials.token)
+      }
+    }
+  }, [isEditMode, existingCredentials])
 
   const handleConnect = async () => {
     setError('')
     setLoading(true)
 
     try {
+      const method = isEditMode ? 'PUT' : 'POST'
       await api.request('/user/github', {
-        method: 'POST',
+        method,
         body: JSON.stringify({ token, username }),
       })
       setConnected(true)
       onConnected()
     } catch (err: any) {
-      setError(err.message || 'Failed to connect GitHub')
+      setError(err.message || `Failed to ${isEditMode ? 'update' : 'connect'} GitHub`)
     } finally {
       setLoading(false)
     }
@@ -41,9 +67,13 @@ export function GitHubConnectModal({ onClose, onConnected }: GitHubConnectModalP
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
         <div className="w-full max-w-md bg-[#111118] rounded-2xl border border-white/10 shadow-xl p-8 text-center">
           <CheckCircle className="w-16 h-16 text-white mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-white mb-2">GitHub Connected!</h2>
+          <h2 className="text-2xl font-bold text-white mb-2">
+            GitHub {isEditMode ? 'Updated' : 'Connected'}!
+          </h2>
           <p className="text-slate-300 mb-6">
-            AI can now create repos, write code, and deploy projects for you.
+            {isEditMode 
+              ? 'Your GitHub credentials have been updated successfully.'
+              : 'AI can now create repos, write code, and deploy projects for you.'}
           </p>
           <Button onClick={onClose} className="bg-gradient-to-r from-violet-600 to-pink-600">
             Done
@@ -61,14 +91,16 @@ export function GitHubConnectModal({ onClose, onConnected }: GitHubConnectModalP
             <div className="p-2 bg-white/10 rounded-lg">
               <Code2 className="w-5 h-5 text-white" />
             </div>
-            <h2 className="text-xl font-semibold text-white">Connect GitHub</h2>
+            <h2 className="text-xl font-semibold text-white">
+              {isEditMode ? 'Edit GitHub' : 'Connect GitHub'}
+            </h2>
           </div>
           <button onClick={onClose} className="p-2 text-slate-400 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {step === 'intro' && (
+        {step === 'intro' && !isEditMode && (
           <div className="space-y-4">
             <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
               <h3 className="font-semibold text-white mb-2">Why connect GitHub?</h3>
@@ -100,13 +132,15 @@ export function GitHubConnectModal({ onClose, onConnected }: GitHubConnectModalP
 
         {step === 'token' && (
           <form onSubmit={(e) => { e.preventDefault(); handleConnect() }} className="space-y-4">
-            <button
-              type="button"
-              onClick={() => setStep('intro')}
-              className="text-sm text-gray-400 hover:text-gray-300"
-            >
-              ← Back
-            </button>
+            {!isEditMode && (
+              <button
+                type="button"
+                onClick={() => setStep('intro')}
+                className="text-sm text-gray-400 hover:text-gray-300"
+              >
+                ← Back
+              </button>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1">
@@ -125,15 +159,32 @@ export function GitHubConnectModal({ onClose, onConnected }: GitHubConnectModalP
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1">
                 Personal Access Token
+                {isEditMode && (
+                  <span className="text-xs text-slate-500 ml-2">(leave blank to keep existing)</span>
+                )}
               </label>
-              <input
-                type="password"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                className="w-full px-4 py-2 bg-white/5 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-gray-500 font-mono text-sm"
-                placeholder="ghp_xxxxxxxxxxxx"
-                required
-              />
+              <div className="relative">
+                <input
+                  type={showToken ? 'text' : 'password'}
+                  value={token}
+                  onChange={(e) => setToken(e.target.value)}
+                  className="w-full px-4 py-2 bg-white/5 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-gray-500 font-mono text-sm pr-20"
+                  placeholder={isEditMode ? '••••••••••••••••' : "ghp_xxxxxxxxxxxx"}
+                  required={!isEditMode}
+                />
+                {isEditMode && token === '' && (
+                  <span className="absolute right-10 top-1/2 -translate-y-1/2 text-xs text-slate-500">
+                    ***
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowToken(!showToken)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-white"
+                >
+                  {showToken ? 'Hide' : 'Show'}
+                </button>
+              </div>
               <p className="mt-2 text-xs text-slate-500">
                 Token is encrypted and only used to push code and create repos.
               </p>
@@ -150,7 +201,7 @@ export function GitHubConnectModal({ onClose, onConnected }: GitHubConnectModalP
               disabled={loading}
               className="w-full bg-gradient-to-r from-gray-700 to-gray-600"
             >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Connect GitHub'}
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (isEditMode ? 'Update GitHub' : 'Connect GitHub')}
             </Button>
           </form>
         )}

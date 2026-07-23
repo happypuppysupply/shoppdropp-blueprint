@@ -2,6 +2,7 @@
 
 import { useState, useEffect, createContext, useContext } from 'react'
 import { useRouter } from 'next/navigation'
+import { api } from '@/lib/api'
 import { 
   Store, 
   ChevronRight, 
@@ -96,20 +97,51 @@ export function StoreLayout({ children }: { children: React.ReactNode }) {
 
   async function loadStores() {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
-      
-      const { data, error } = await supabase
-        .from('stores')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-      
-      if (error) {
-        console.error('Error loading stores:', error)
-        return
+      // Try to load from backend API first (for Happy Puppy store)
+      try {
+        const storesFromApi = await api.stores.list()
+        if (storesFromApi && storesFromApi.length > 0) {
+          setStores(storesFromApi)
+          return
+        }
+      } catch (apiError) {
+        console.log('API fetch failed, falling back to Supabase:', apiError)
       }
-      setStores(data || [])
+      
+      // Fallback to Supabase
+      let storesList: any[] = []
+      
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const { data, error } = await supabase
+            .from('stores')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+          
+          if (!error && data) {
+            storesList = data
+          }
+        }
+      } catch (supabaseError) {
+        console.log('Supabase fetch failed:', supabaseError)
+      }
+      
+      // If no stores found, add Happy Puppy demo store
+      if (storesList.length === 0) {
+        const happyPuppyStore = {
+          id: '000fdf9a-74b4-4069-b441-2a000b4f3b08',
+          name: 'Happy Puppy Supply',
+          url: 'https://happypuppysupply.myshopify.com',
+          status: 'active',
+          worker_id: 'worker-happypuppy-001',
+          created_at: new Date().toISOString(),
+        }
+        setStores([happyPuppyStore])
+      } else {
+        setStores(storesList)
+      }
     } catch (error) {
       console.error('Failed to load stores:', error)
     }

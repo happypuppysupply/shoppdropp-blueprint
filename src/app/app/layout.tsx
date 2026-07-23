@@ -1,10 +1,7 @@
-import { AuthProvider } from '@/components/auth/AuthProvider'
-import { AppShell } from '@/components/app/AppShell'
+'use client'
+
+import { StoreLayout } from '@/components/dashboard/StoreLayout'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <AuthProvider>
-      <AppShell>{children}</AppShell>
-    </AuthProvider>
-  )
+  return <StoreLayout>{children}</StoreLayout>
 }

@@ -7,6 +7,8 @@ import { api } from '@/lib/api'
 
 interface ShopifyConnectModalProps {
   storeId: string
+  mode?: 'create' | 'edit'
+  existingCredentials?: any
   onClose: () => void
   onConnected: () => void
 }
@@ -53,7 +55,8 @@ const REQUIRED_SCOPES = [
   'write_content',
 ]
 
-export function ShopifyConnectModal({ storeId, onClose, onConnected }: ShopifyConnectModalProps) {
+export function ShopifyConnectModal({ storeId, mode = 'create', existingCredentials, onClose, onConnected }: ShopifyConnectModalProps) {
+  const isEditMode = mode === 'edit'
   const [step, setStep] = useState(0)
   const [storeUrl, setStoreUrl] = useState('')
   const [apiToken, setApiToken] = useState('')
