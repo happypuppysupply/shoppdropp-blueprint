@@ -26,6 +26,7 @@ import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/useAuth'
 import { supabase } from '@/lib/supabase'
 import { AddStoreModal } from './AddStoreModal'
+import { GlobalAIChat } from './GlobalAIChat'
 
 interface StoreData {
   id: string
@@ -356,6 +357,9 @@ export function StoreLayout({ children }: { children: React.ReactNode }) {
             }} 
           />
         )}
+
+        {/* Global AI Chat - visible on all pages */}
+        <GlobalAIChat />
       </div>
     </StoreContext.Provider>
   )
