@@ -13,6 +13,7 @@ import { VercelConnectModal } from './VercelConnectModal'
 import { useState, useEffect, useRef } from 'react'
 import { getSupabaseClient } from '@/lib/supabase-client'
 import { api } from '@/lib/api'
+import { api } from '@/lib/api'
 import { vps } from '@/lib/vps-api'
 import { useStore } from './StoreLayout'
 import { useRouter } from 'next/navigation'
@@ -103,7 +104,11 @@ export function StoreContent({ store }: StoreContentProps) {
     async function fetchWorkerData() {
       try {
         setWorkerLoading(true)
-        const res = await fetch('/api/ai-chat/context')
+        // Try to get worker from backend API
+        const { data: { session } } = await getSupabaseClient().auth.getSession()
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/workers`, {
+          headers: session ? { 'Authorization': `Bearer ${session.access_token}` } : {}
+        })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const data = await res.json()
         if (!cancelled) {
