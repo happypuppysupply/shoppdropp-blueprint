@@ -7,9 +7,12 @@ interface VPSApiOptions {
   headers?: Record<string, string>
 }
 
+import { supabase } from './supabase'
+
 async function getToken(): Promise<string | null> {
   if (typeof window === 'undefined') return null
-  return localStorage.getItem('token')
+  const { data: { session } } = await supabase.auth.getSession()
+  return session?.access_token || null
 }
 
 export async function vpsApi(endpoint: string, options: VPSApiOptions = {}) {
