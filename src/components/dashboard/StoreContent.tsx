@@ -1,6 +1,6 @@
 'use client'
 
-import { Store, Sparkles, Send, Bot, User, TrendingUp, Eye, MousePointer, DollarSign, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
+import { Store, Sparkles, Send, Bot, User, TrendingUp, Eye, MousePointer, DollarSign, CheckCircle, AlertCircle, Loader2, Play, Search, Package, Target, BarChart3 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { StoreIntegrations } from './StoreIntegrations'
 import { ShopifyConnectModal } from './ShopifyConnectModal'
