@@ -24,7 +24,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAuth } from '@/hooks/useAuth'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseClient } from '@/lib/supabase-client'
 import { AddStoreModal } from './AddStoreModal'
 import { GlobalAIChat } from './GlobalAIChat'
 
@@ -83,6 +83,7 @@ export function StoreLayout({ children }: { children: React.ReactNode }) {
       loadStores()
       
       // Subscribe to realtime store updates
+      const supabase = getSupabaseClient()
       const subscription = supabase
         .channel('stores-changes')
         .on('postgres_changes', 

@@ -7,10 +7,11 @@ interface VPSApiOptions {
   headers?: Record<string, string>
 }
 
-import { supabase } from './supabase'
+import { getSupabaseClient } from './supabase-client'
 
 async function getToken(): Promise<string | null> {
   if (typeof window === 'undefined') return null
+  const supabase = getSupabaseClient()
   const { data: { session } } = await supabase.auth.getSession()
   return session?.access_token || null
 }
