@@ -57,12 +57,6 @@ interface TaskResult {
 
 export function StoreContent({ store }: StoreContentProps) {
   const { selectedPage } = useStore()
-  
-  // Debug logging
-  useEffect(() => {
-    console.log('[StoreContent] selectedPage changed:', selectedPage)
-  }, [selectedPage])
-  
   const [integrations, setIntegrations] = useState<Record<string, { connected: boolean; [key: string]: any }>>({
     shopify: { connected: false },
     meta_ads: { connected: false },
@@ -380,7 +374,6 @@ export function StoreContent({ store }: StoreContentProps) {
 
   // Render specific page content
   const renderContent = () => {
-    console.log('[StoreContent] renderContent called with selectedPage:', selectedPage)
     switch (selectedPage) {
       case 'overview':
         return (
