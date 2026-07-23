@@ -43,8 +43,8 @@ function AuthCallbackContent() {
           return;
         }
 
-        // Get the next redirect path - default to /app/dashboard
-        const next = searchParams.get("next") || "/app/dashboard";
+        // Get the next redirect path - default to /app
+        const next = searchParams.get("next") || "/app";
 
         // @supabase/ssr automatically exchanges the code for a session
         // when detectSessionInUrl is true (which is the default)
