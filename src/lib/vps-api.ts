@@ -1,4 +1,4 @@
-const VPS_API_URL = process.env.VPS_API_URL || 'http://localhost:3001'
+const VPS_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 const VPS_API_KEY = process.env.VPS_API_KEY
 
 interface VPSApiOptions {
@@ -7,13 +7,20 @@ interface VPSApiOptions {
   headers?: Record<string, string>
 }
 
+async function getToken(): Promise<string | null> {
+  if (typeof window === 'undefined') return null
+  return localStorage.getItem('token')
+}
+
 export async function vpsApi(endpoint: string, options: VPSApiOptions = {}) {
   const { method = 'GET', body, headers = {} } = options
+  const token = await getToken()
 
-  const res = await fetch(`${VPS_API_URL}${endpoint}`, {
+  const res = await fetch(`${VPS_API_URL}/api${endpoint}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
+      ...(token && { Authorization: `Bearer ${token}` }),
       ...(VPS_API_KEY && { 'X-API-Key': VPS_API_KEY }),
       ...headers,
     },
