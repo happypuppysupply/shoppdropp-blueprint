@@ -54,7 +54,7 @@ interface TaskResult {
 
 export function StoreContent({ store }: StoreContentProps) {
   const { selectedPage } = useStore()
-  const [integrations, setIntegrations] = useState({
+  const [integrations, setIntegrations] = useState<Record<string, { connected: boolean; [key: string]: any }>>({
     shopify: { connected: false },
     meta_ads: { connected: false },
     cj_dropshipping: { connected: false },
