@@ -130,7 +130,7 @@ export function StoreLayout({ children }: { children: React.ReactNode }) {
       
       // If no stores found, add Happy Puppy demo store
       if (storesList.length === 0) {
-        const happyPuppyStore = {
+        const happyPuppyStore: StoreData = {
           id: '000fdf9a-74b4-4069-b441-2a000b4f3b08',
           name: 'Happy Puppy Supply',
           url: 'https://happypuppysupply.myshopify.com',
