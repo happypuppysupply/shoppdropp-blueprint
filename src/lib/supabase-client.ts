@@ -1,26 +1,27 @@
-"use client";
+import { createClient } from '@supabase/supabase-js'
+import type { Database } from '@/types/supabase'
 
-import { createBrowserClient } from "@supabase/ssr";
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+export function getSupabaseClient() {
+  if (typeof window === 'undefined') {
+    throw new Error('getSupabaseClient must be called on the client side')
+  }
 
-// Standard browser client - PKCE verifier stored in cookies automatically by @supabase/ssr
-export function createClient() {
-  return createBrowserClient(supabaseUrl, supabaseKey);
+  return createClient<Database>(supabaseUrl, supabaseKey, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+    },
+    db: {
+      schema: 'public',
+    },
+    global: {
+      headers: {
+        'x-application-name': 'shoppdropp',
+      },
+    },
+  })
 }
-
-// Singleton instance for client-side use
-let clientInstance: ReturnType<typeof createClient> | null = null;
-
-export const getSupabaseClient = () => {
-  if (typeof window === "undefined") {
-    throw new Error("getSupabaseClient can only be used in browser");
-  }
-  
-  if (!clientInstance) {
-    clientInstance = createClient();
-  }
-  
-  return clientInstance;
-};
