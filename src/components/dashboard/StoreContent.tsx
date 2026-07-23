@@ -11,7 +11,7 @@ import { AIProviderModal } from './AIProviderModal'
 import { GitHubConnectModal } from './GitHubConnectModal'
 import { VercelConnectModal } from './VercelConnectModal'
 import { useState, useEffect, useRef } from 'react'
-import { supabase } from '@/lib/supabase'
+import { getSupabaseClient } from '@/lib/supabase-client'
 import { api } from '@/lib/api'
 import { vps } from '@/lib/vps-api'
 import { useStore } from './StoreLayout'
@@ -175,6 +175,7 @@ export function StoreContent({ store }: StoreContentProps) {
 
     // Fallback to Supabase
     try {
+      const supabase = getSupabaseClient()
       const { data: creds } = await supabase
         .from('store_credentials')
         .select('*')
