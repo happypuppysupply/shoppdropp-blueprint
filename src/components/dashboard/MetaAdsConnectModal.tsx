@@ -7,11 +7,14 @@ import { api } from '@/lib/api'
 
 interface MetaAdsConnectModalProps {
   storeId: string
+  mode?: 'create' | 'edit'
+  existingCredentials?: any
   onClose: () => void
   onConnected: () => void
 }
 
-export function MetaAdsConnectModal({ storeId, onClose, onConnected }: MetaAdsConnectModalProps) {
+export function MetaAdsConnectModal({ storeId, mode = 'create', existingCredentials, onClose, onConnected }: MetaAdsConnectModalProps) {
+  const isEditMode = mode === 'edit'
   const [step, setStep] = useState<'intro' | 'token' | 'verify'>('intro')
   const [accessToken, setAccessToken] = useState('')
   const [accountId, setAccountId] = useState('')

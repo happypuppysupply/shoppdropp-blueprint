@@ -44,11 +44,14 @@ const AI_PROVIDERS = [
 ]
 
 interface AIProviderModalProps {
+  mode?: 'create' | 'edit'
+  existingCredentials?: any
   onClose: () => void
   onConfigured: () => void
 }
 
-export function AIProviderModal({ onClose, onConfigured }: AIProviderModalProps) {
+export function AIProviderModal({ mode = 'create', existingCredentials, onClose, onConfigured }: AIProviderModalProps) {
+  const isEditMode = mode === 'edit'
   const [selectedProvider, setSelectedProvider] = useState('')
   const [selectedModel, setSelectedModel] = useState('')
   const [apiKey, setApiKey] = useState('')

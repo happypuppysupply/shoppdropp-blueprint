@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useState, Suspense, useRef } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { getSupabaseClient } from "@/lib/supabase-client";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { Loader2, CheckCircle2, XCircle } from "lucide-react";
 
 export default function AuthCallbackPage() {
@@ -26,101 +25,64 @@ function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
-  const [message, setMessage] = useState("Verifying your email...");
-  const supabaseRef = useRef<SupabaseClient | null>(null);
+  const [message, setMessage] = useState("Completing sign in...");
 
   useEffect(() => {
-    // Initialize Supabase client with shared cookie-based config
-    try {
-      supabaseRef.current = getSupabaseClient();
-    } catch (err) {
-      setStatus("error");
-      setMessage("Configuration error: Missing Supabase credentials");
-      setTimeout(() => router.push("/"), 3000);
-      return;
-    }
-
     const handleAuthCallback = async () => {
-      if (!supabaseRef.current) return;
-      
-      // Check for error in URL
-      const error = searchParams.get("error");
-      const errorDescription = searchParams.get("error_description");
-      
-      if (error) {
+      try {
+        const supabase = getSupabaseClient();
+        
+        // Check for error in URL first
+        const error = searchParams.get("error");
+        const errorDescription = searchParams.get("error_description");
+        
+        if (error) {
+          setStatus("error");
+          setMessage(errorDescription || "Authentication failed");
+          setTimeout(() => router.push("/"), 3000);
+          return;
+        }
+
+        // Get the next redirect path - default to /app/dashboard
+        const next = searchParams.get("next") || "/app/dashboard";
+
+        // @supabase/ssr automatically exchanges the code for a session
+        // when detectSessionInUrl is true (which is the default)
+        // We just need to wait a tick for it to complete, then check the session
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        
+        if (sessionError) {
+          setStatus("error");
+          setMessage(sessionError.message);
+          setTimeout(() => router.push("/"), 3000);
+          return;
+        }
+        
+        if (session) {
+          setStatus("success");
+          setMessage("Signed in! Redirecting...");
+          setTimeout(() => router.push(next), 1000);
+        } else {
+          // No session yet, try once more after a short delay
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          const { data: { session: retrySession } } = await supabase.auth.getSession();
+          
+          if (retrySession) {
+            setStatus("success");
+            setMessage("Signed in! Redirecting...");
+            setTimeout(() => router.push(next), 1000);
+          } else {
+            setStatus("error");
+            setMessage("Could not complete sign in. Please try again.");
+            setTimeout(() => router.push("/"), 3000);
+          }
+        }
+      } catch (err: any) {
         setStatus("error");
-        setMessage(errorDescription || "Authentication failed");
+        setMessage(err.message || "Authentication failed");
         setTimeout(() => router.push("/"), 3000);
-        return;
-      }
-
-      // Check for confirmation token (email confirmation)
-      const token = searchParams.get("token");
-      const type = searchParams.get("type");
-      
-      if (token && type === "signup") {
-        try {
-          // Exchange the token for a session
-          const { error: verifyError } = await supabaseRef.current.auth.verifyOtp({
-            token_hash: token,
-            type: "signup",
-          });
-          
-          if (verifyError) {
-            setStatus("error");
-            setMessage(verifyError.message);
-            setTimeout(() => router.push("/"), 3000);
-            return;
-          }
-          
-          setStatus("success");
-          setMessage("Email confirmed! Redirecting to dashboard...");
-          setTimeout(() => router.push("/dashboard"), 1500);
-          return;
-        } catch (err) {
-          setStatus("error");
-          setMessage("Failed to verify email");
-          setTimeout(() => router.push("/"), 3000);
-          return;
-        }
-      }
-
-      // Check for auth code (OAuth or magic link)
-      const code = searchParams.get("code");
-      
-      if (code) {
-        try {
-          const { error: sessionError } = await supabaseRef.current.auth.exchangeCodeForSession(code);
-          
-          if (sessionError) {
-            setStatus("error");
-            setMessage(sessionError.message);
-            setTimeout(() => router.push("/"), 3000);
-            return;
-          }
-          
-          setStatus("success");
-          setMessage("Signed in! Redirecting to dashboard...");
-          setTimeout(() => router.push("/dashboard"), 1500);
-          return;
-        } catch (err) {
-          setStatus("error");
-          setMessage("Failed to complete sign in");
-          setTimeout(() => router.push("/"), 3000);
-          return;
-        }
-      }
-
-      // If no token or code, just check if user is already logged in
-      const { data: { user } } = await supabaseRef.current.auth.getUser();
-      
-      if (user) {
-        setStatus("success");
-        setMessage("Already signed in! Redirecting...");
-        setTimeout(() => router.push("/dashboard"), 1000);
-      } else {
-        // No auth data, redirect home
-        router.push("/");
       }
     };
 

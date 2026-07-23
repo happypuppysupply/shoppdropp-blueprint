@@ -115,7 +115,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     await supabaseRef.current.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback?next=/app/dashboard`,
+        // Skip PKCE for Google OAuth - uses implicit flow
+        // PKCE requires cookies that may be blocked in incognito
+        skipBrowserRedirect: false,
       },
     });
   }, []);

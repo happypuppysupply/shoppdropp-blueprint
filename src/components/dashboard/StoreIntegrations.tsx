@@ -3,9 +3,15 @@
 import { useState } from 'react'
 import { 
   Store, MessageCircle, Truck, Brain, Code2, Triangle, 
-  Link2, CheckCircle, AlertCircle, ChevronRight 
+  Link2, CheckCircle, AlertCircle, ChevronRight, Loader2
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { api } from '@/lib/api'
+import { supabase } from '@/lib/supabase'
+
+interface Credentials {
+  [key: string]: any
+}
 
 interface StoreIntegrationsProps {
   storeId: string
@@ -15,6 +21,13 @@ interface StoreIntegrationsProps {
   onConfigureAI: () => void
   onConnectGitHub: () => void
   onConnectVercel: () => void
+  // Edit handlers with credentials
+  onEditShopify?: (credentials: Credentials) => void
+  onEditMeta?: (credentials: Credentials) => void
+  onEditCJ?: (credentials: Credentials) => void
+  onEditAI?: (credentials: Credentials) => void
+  onEditGitHub?: (credentials: Credentials) => void
+  onEditVercel?: (credentials: Credentials) => void
   integrations: {
     shopify?: { connected: boolean }
     meta_ads?: { connected: boolean }
@@ -96,8 +109,16 @@ export function StoreIntegrations({
   onConfigureAI,
   onConnectGitHub,
   onConnectVercel,
+  onEditShopify,
+  onEditMeta,
+  onEditCJ,
+  onEditAI,
+  onEditGitHub,
+  onEditVercel,
   integrations 
 }: StoreIntegrationsProps) {
+  const [editingId, setEditingId] = useState<string | null>(null)
+
   const handlers: Record<string, () => void> = {
     shopify: onConnectShopify,
     meta_ads: onConnectMeta,
@@ -105,6 +126,15 @@ export function StoreIntegrations({
     ai: onConfigureAI,
     github: onConnectGitHub,
     vercel: onConnectVercel,
+  }
+
+  const editHandlers: Record<string, ((creds: Credentials) => void) | undefined> = {
+    shopify: onEditShopify,
+    meta_ads: onEditMeta,
+    cj_dropshipping: onEditCJ,
+    ai: onEditAI,
+    github: onEditGitHub,
+    vercel: onEditVercel,
   }
 
   const getStatus = (id: string) => {
@@ -116,6 +146,78 @@ export function StoreIntegrations({
     const integration = integrations[id as keyof typeof integrations]
     if (!integration?.connected) return 'Not connected'
     return 'Connected'
+  }
+
+  const fetchCredentials = async (id: string): Promise<Credentials | null> => {
+    try {
+      if (id === 'shopify' || id === 'meta_ads' || id === 'cj_dropshipping') {
+        // Fetch from store_credentials
+        const { data, error } = await supabase
+          .from('store_credentials')
+          .select('credentials')
+          .eq('store_id', storeId)
+          .eq('type', id)
+          .single()
+        
+        if (error) throw error
+        
+        // Mask sensitive fields
+        const creds = { ...data.credentials }
+        if (creds.token) creds.token = '***'
+        if (creds.api_key) creds.api_key = '***'
+        if (creds.access_token) creds.access_token = '***'
+        if (creds.password) creds.password = '***'
+        
+        return creds
+      } else if (id === 'ai') {
+        // Fetch from ai_configs
+        const { data, error } = await supabase
+          .from('ai_configs')
+          .select('*')
+          .single()
+        
+        if (error) throw error
+        
+        // Mask API key
+        const creds = { ...data }
+        if (creds.api_key) creds.api_key = '***'
+        
+        return creds
+      } else if (id === 'github' || id === 'vercel') {
+        // Fetch from user_credentials
+        const { data, error } = await supabase
+          .from('user_credentials')
+          .select('credentials')
+          .eq('type', id)
+          .single()
+        
+        if (error) throw error
+        
+        // Mask sensitive fields
+        const creds = { ...data.credentials }
+        if (creds.token) creds.token = '***'
+        
+        return creds
+      }
+    } catch (error) {
+      console.error(`Failed to fetch credentials for ${id}:`, error)
+    }
+    return null
+  }
+
+  const handleEdit = async (id: string) => {
+    const editHandler = editHandlers[id]
+    if (!editHandler) {
+      // Fallback to connect handler if no edit handler provided
+      handlers[id]?.()
+      return
+    }
+
+    setEditingId(id)
+    const credentials = await fetchCredentials(id)
+    setEditingId(null)
+    
+    editHandler(credentials || {})
   }
 
   const connectedCount = Object.values(integrations).filter(i => i?.connected).length
@@ -148,7 +250,9 @@ export function StoreIntegrations({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {INTEGRATIONS.map((integration) => {
           const isConnected = getStatus(integration.id)
+          const isEditing = editingId === integration.id
           const Icon = integration.icon
+          const hasEditHandler = !!editHandlers[integration.id]
           
           return (
             <div 
@@ -187,18 +291,33 @@ export function StoreIntegrations({
                 <span className={`text-xs ${isConnected ? 'text-green-400' : 'text-slate-500'}`}>
                   {getDetails(integration.id)}
                 </span>
-                <Button
-                  size="sm"
-                  variant={isConnected ? "outline" : "default"}
-                  onClick={handlers[integration.id]}
-                  className={isConnected 
-                    ? 'border-white/20 text-slate-300 hover:bg-white/5' 
-                    : 'bg-gradient-to-r from-violet-600 to-pink-600'
-                  }
-                >
-                  {isConnected ? 'Manage' : 'Connect'}
-                  <ChevronRight className="w-3 h-3 ml-1" />
-                </Button>
+                {isConnected ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleEdit(integration.id)}
+                    disabled={isEditing}
+                    className='border-white/20 text-slate-300 hover:bg-white/5'
+                  >
+                    {isEditing ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <>
+                        Edit
+                        <ChevronRight className="w-3 h-3 ml-1" />
+                      </>
+                    )}
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    onClick={handlers[integration.id]}
+                    className='bg-gradient-to-r from-violet-600 to-pink-600'
+                  >
+                    Connect
+                    <ChevronRight className="w-3 h-3 ml-1" />
+                  </Button>
+                )}
               </div>
             </div>
           )

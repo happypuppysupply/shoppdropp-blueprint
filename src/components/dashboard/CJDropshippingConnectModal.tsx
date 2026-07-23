@@ -1,35 +1,83 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X, Truck, Loader2, ChevronRight, CheckCircle, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { supabase } from '@/lib/supabase'
 
+interface CJCredentials {
+  email?: string
+  api_key?: string
+}
+
 interface CJDropshippingConnectModalProps {
   storeId: string
+  mode?: 'create' | 'edit'
+  existingCredentials?: CJCredentials
   onClose: () => void
   onConnected: () => void
 }
 
-export function CJDropshippingConnectModal({ storeId, onClose, onConnected }: CJDropshippingConnectModalProps) {
-  const [step, setStep] = useState<'intro' | 'token'>('intro')
+export function CJDropshippingConnectModal({ 
+  storeId,
+  mode = 'create',
+  existingCredentials,
+  onClose, 
+  onConnected 
+}: CJDropshippingConnectModalProps) {
+  const isEditMode = mode === 'edit'
+  const [step, setStep] = useState<'intro' | 'token'>(isEditMode ? 'token' : 'intro')
   const [email, setEmail] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [connected, setConnected] = useState(false)
+  const [showApiKey, setShowApiKey] = useState(false)
+
+  // Pre-fill existing credentials when in edit mode
+  useEffect(() => {
+    if (isEditMode && existingCredentials) {
+      setEmail(existingCredentials.email || '')
+      // API key is masked - only set if it's not the mask value
+      if (existingCredentials.api_key && existingCredentials.api_key !== '***') {
+        setApiKey(existingCredentials.api_key)
+      }
+    }
+  }, [isEditMode, existingCredentials])
 
   const handleConnect = async () => {
     setError('')
     setLoading(true)
 
     try {
+      // Build credentials object
+      const credentials: CJCredentials = { email }
+      
+      // Only include api_key if provided (for edit mode, empty means keep existing)
+      if (apiKey) {
+        credentials.api_key = apiKey
+      } else if (isEditMode && existingCredentials?.api_key) {
+        // In edit mode with empty apiKey, we need to handle this differently
+        // Since Supabase doesn't support partial updates in upsert easily,
+        // we'll fetch existing credentials and merge
+        const { data: existing } = await supabase
+          .from('store_credentials')
+          .select('credentials')
+          .eq('store_id', storeId)
+          .eq('type', 'cj_dropshipping')
+          .single()
+        
+        if (existing?.credentials?.api_key) {
+          credentials.api_key = existing.credentials.api_key
+        }
+      }
+
       const { error: dbError } = await supabase
         .from('store_credentials')
         .upsert({
           store_id: storeId,
           type: 'cj_dropshipping',
-          credentials: { email, api_key: apiKey },
+          credentials,
         })
 
       if (dbError) throw dbError
@@ -37,7 +85,7 @@ export function CJDropshippingConnectModal({ storeId, onClose, onConnected }: CJ
       setConnected(true)
       onConnected()
     } catch (err: any) {
-      setError(err.message || 'Failed to connect CJ Dropshipping')
+      setError(err.message || `Failed to ${isEditMode ? 'update' : 'connect'} CJ Dropshipping`)
     } finally {
       setLoading(false)
     }
@@ -48,9 +96,13 @@ export function CJDropshippingConnectModal({ storeId, onClose, onConnected }: CJ
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
         <div className="w-full max-w-md bg-[#111118] rounded-2xl border border-white/10 shadow-xl p-8 text-center">
           <CheckCircle className="w-16 h-16 text-orange-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-white mb-2">CJ Dropshipping Connected!</h2>
+          <h2 className="text-2xl font-bold text-white mb-2">
+            CJ Dropshipping {isEditMode ? 'Updated' : 'Connected'}!
+          </h2>
           <p className="text-slate-300 mb-6">
-            CJ Dropshipping is now connected. The AI can source products and automate fulfillment from CJ.
+            {isEditMode
+              ? 'Your CJ Dropshipping credentials have been updated successfully.'
+              : 'CJ Dropshipping is now connected. The AI can source products and automate fulfillment from CJ.'}
           </p>
           <Button onClick={onClose} className="bg-gradient-to-r from-violet-600 to-pink-600">
             Done
@@ -68,14 +120,16 @@ export function CJDropshippingConnectModal({ storeId, onClose, onConnected }: CJ
             <div className="p-2 bg-orange-500/20 rounded-lg">
               <Truck className="w-5 h-5 text-orange-400" />
             </div>
-            <h2 className="text-xl font-semibold text-white">Connect CJ Dropshipping</h2>
+            <h2 className="text-xl font-semibold text-white">
+              {isEditMode ? 'Edit CJ Dropshipping' : 'Connect CJ Dropshipping'}
+            </h2>
           </div>
           <button onClick={onClose} className="p-2 text-slate-400 hover:text-white">
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {step === 'intro' && (
+        {step === 'intro' && !isEditMode && (
           <div className="space-y-4">
             <div className="p-4 bg-orange-500/10 border border-orange-500/30 rounded-xl">
               <h3 className="font-semibold text-white mb-2">How to get your CJ Dropshipping API Key:</h3>
@@ -104,13 +158,15 @@ export function CJDropshippingConnectModal({ storeId, onClose, onConnected }: CJ
 
         {step === 'token' && (
           <form onSubmit={(e) => { e.preventDefault(); handleConnect() }} className="space-y-4">
-            <button
-              type="button"
-              onClick={() => setStep('intro')}
-              className="text-sm text-orange-400 hover:text-orange-300"
-            >
-              ← Back to instructions
-            </button>
+            {!isEditMode && (
+              <button
+                type="button"
+                onClick={() => setStep('intro')}
+                className="text-sm text-orange-400 hover:text-orange-300"
+              >
+                ← Back to instructions
+              </button>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1">
@@ -129,15 +185,32 @@ export function CJDropshippingConnectModal({ storeId, onClose, onConnected }: CJ
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-1">
                 CJ Dropshipping API Key
+                {isEditMode && (
+                  <span className="text-xs text-slate-500 ml-2">(leave blank to keep existing)</span>
+                )}
               </label>
-              <input
-                type="password"
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-                className="w-full px-4 py-2 bg-white/5 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500 font-mono text-sm"
-                placeholder="cj_xxxxxxxxxxxx"
-                required
-              />
+              <div className="relative">
+                <input
+                  type={showApiKey ? 'text' : 'password'}
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  className="w-full px-4 py-2 bg-white/5 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-orange-500 font-mono text-sm pr-20"
+                  placeholder={isEditMode ? '••••••••••••••••' : "cj_xxxxxxxxxxxx"}
+                  required={!isEditMode}
+                />
+                {isEditMode && apiKey === '' && (
+                  <span className="absolute right-10 top-1/2 -translate-y-1/2 text-xs text-slate-500">
+                    ***
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-white"
+                >
+                  {showApiKey ? 'Hide' : 'Show'}
+                </button>
+              </div>
               <p className="mt-2 text-xs text-slate-500">
                 This key allows AI to automate product sourcing and order fulfillment via CJ Dropshipping.
               </p>
@@ -154,7 +227,7 @@ export function CJDropshippingConnectModal({ storeId, onClose, onConnected }: CJ
               disabled={loading}
               className="w-full bg-gradient-to-r from-orange-600 to-pink-600"
             >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Connect CJ Dropshipping'}
+              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (isEditMode ? 'Update CJ Dropshipping' : 'Connect CJ Dropshipping')}
             </Button>
           </form>
         )}
