@@ -2,6 +2,7 @@
 
 import { Store, Sparkles, Send, Bot, User, TrendingUp, Eye, MousePointer, DollarSign, CheckCircle, AlertCircle, Loader2, Play, Search, Package, Target, BarChart3 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { StoreIntegrations } from './StoreIntegrations'
 import { ShopifyConnectModal } from './ShopifyConnectModal'
 import { MetaAdsConnectModal } from './MetaAdsConnectModal'
@@ -335,21 +336,18 @@ export function StoreContent({ store }: StoreContentProps) {
   const handleProvisionVPS = async () => {
     try {
       setIsProvisioning(true)
-      setTaskResults(prev => [{ task: 'vps_provision', status: 'running', message: 'Creating and provisioning VPS...', timestamp: Date.now() }, ...prev])
+      setTaskResults(prev => [{ task: 'vps_provision', status: 'running', message: 'Creating and provisioning VPS...', timestamp: new Date().toISOString() }, ...prev])
       
       // Call the real VPS provisioning API
       const response = await vps.provision.createAndProvision(store.id)
       
-      setTaskResults(prev => [{ task: 'vps_provision', status: 'completed', message: `VPS Worker created: ${response.workerId || 'New Worker'}`, timestamp: Date.now() }, ...prev])
-      
-      // Refresh worker data
-      await loadWorker()
+      setTaskResults(prev => [{ task: 'vps_provision', status: 'completed', message: `VPS Worker created: ${response.workerId || 'New Worker'}`, timestamp: new Date().toISOString() }, ...prev])
       
       // Navigate to build progress page to watch the build
       router.push(`/app/dashboard/build-progress?storeId=${store.id}`)
     } catch (error: any) {
       console.error('Failed to provision VPS:', error)
-      setTaskResults(prev => [{ task: 'vps_provision', status: 'failed', message: error.message || 'Provisioning failed', timestamp: Date.now() }, ...prev])
+      setTaskResults(prev => [{ task: 'vps_provision', status: 'failed', message: error.message || 'Provisioning failed', timestamp: new Date().toISOString() }, ...prev])
       alert('Failed to provision VPS: ' + (error.message || 'Unknown error'))
     } finally {
       setIsProvisioning(false)
