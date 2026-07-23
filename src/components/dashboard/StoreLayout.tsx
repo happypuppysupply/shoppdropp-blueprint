@@ -32,6 +32,7 @@ interface StoreData {
   url: string
   status: 'pending' | 'provisioning' | 'active' | 'error'
   worker_id: string | null
+  created_at?: string
 }
 
 interface StoreContextType {
