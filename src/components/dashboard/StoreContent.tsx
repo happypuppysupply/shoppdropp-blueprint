@@ -12,7 +12,9 @@ import { VercelConnectModal } from './VercelConnectModal'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { api } from '@/lib/api'
+import { vps } from '@/lib/vps-api'
 import { useStore } from './StoreLayout'
+import { useRouter } from 'next/navigation'
 
 interface StoreData {
   id: string
@@ -78,8 +80,10 @@ export function StoreContent({ store }: StoreContentProps) {
   // AI Agent - Worker state
   const [worker, setWorker] = useState<WorkerData | null>(null)
   const [workerLoading, setWorkerLoading] = useState(false)
+  const [isProvisioning, setIsProvisioning] = useState(false)
   const [taskResults, setTaskResults] = useState<TaskResult[]>([])
   const [runningTasks, setRunningTasks] = useState<Set<string>>(new Set())
+  const router = useRouter()
 
   useEffect(() => {
     loadIntegrations()
@@ -241,26 +245,53 @@ export function StoreContent({ store }: StoreContentProps) {
     setChatInput('')
     setIsTyping(true)
 
-    // Simulate AI response
-    setTimeout(() => {
-      const responses = [
-        "I've analyzed your store data. Your Meta Ads are performing 23% better than last week. Would you like me to optimize the budget?",
-        "I found 3 trending products in your niche. Should I add them to your queue for review?",
-        "Your Shopify inventory shows 2 items running low. I've created a restock alert for you.",
-        "I can see your AI Worker completed the catalog sync successfully. Everything is up to date!"
-      ]
-      const randomResponse = responses[Math.floor(Math.random() * responses.length)]
+    // Call OpenRouter API for real AI response
+    try {
+      const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.NEXT_PUBLIC_OPENROUTER_API_KEY || ''}`,
+          'HTTP-Referer': window.location.origin,
+          'X-Title': 'ShoppDropp AI Agent'
+        },
+        body: JSON.stringify({
+          model: 'openrouter/moonshotai/kimi-k2.5',
+          messages: [
+            { role: 'system', content: 'You are an AI assistant for ShoppDropp, a dropshipping automation platform. Help users with their Shopify store, Meta Ads, CJ Dropshipping, and VPS worker tasks. Be concise and helpful.' },
+            ...chatMessages.map(m => ({ role: m.role, content: m.content })),
+            { role: 'user', content: chatInput }
+          ]
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`OpenRouter API error: ${response.status}`)
+      }
+
+      const data = await response.json()
+      const aiContent = data.choices?.[0]?.message?.content || 'I apologize, but I could not process your request.'
 
       const assistantMessage: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: randomResponse,
+        content: aiContent,
         timestamp: new Date()
       }
 
       setChatMessages(prev => [...prev, assistantMessage])
+    } catch (error: any) {
+      console.error('OpenRouter API error:', error)
+      const errorMessage: ChatMessage = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: 'Sorry, I encountered an error connecting to the AI service. Please check your OpenRouter API key configuration.',
+        timestamp: new Date()
+      }
+      setChatMessages(prev => [...prev, errorMessage])
+    } finally {
       setIsTyping(false)
-    }, 1500)
+    }
   }
 
   // Run a task via the backend
@@ -299,6 +330,30 @@ export function StoreContent({ store }: StoreContentProps) {
 
   const handleStopWorker = async () => {
     await runTask('stop_worker')
+  }
+
+  const handleProvisionVPS = async () => {
+    try {
+      setIsProvisioning(true)
+      setTaskResults(prev => [{ task: 'vps_provision', status: 'running', message: 'Creating and provisioning VPS...', timestamp: Date.now() }, ...prev])
+      
+      // Call the real VPS provisioning API
+      const response = await vps.provision.createAndProvision(store.id)
+      
+      setTaskResults(prev => [{ task: 'vps_provision', status: 'completed', message: `VPS Worker created: ${response.workerId || 'New Worker'}`, timestamp: Date.now() }, ...prev])
+      
+      // Refresh worker data
+      await loadWorker()
+      
+      // Navigate to build progress page to watch the build
+      router.push(`/app/dashboard/build-progress?storeId=${store.id}`)
+    } catch (error: any) {
+      console.error('Failed to provision VPS:', error)
+      setTaskResults(prev => [{ task: 'vps_provision', status: 'failed', message: error.message || 'Provisioning failed', timestamp: Date.now() }, ...prev])
+      alert('Failed to provision VPS: ' + (error.message || 'Unknown error'))
+    } finally {
+      setIsProvisioning(false)
+    }
   }
 
   const getStatusColor = (status?: string) => {
@@ -544,24 +599,38 @@ export function StoreContent({ store }: StoreContentProps) {
                     )}
                   </div>
                   <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="border-white/20 text-white"
-                      onClick={handleRestartWorker}
-                      disabled={runningTasks.has('restart_worker')}
-                    >
-                      {runningTasks.has('restart_worker') ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Restart'}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="border-red-500/50 text-red-400"
-                      onClick={handleStopWorker}
-                      disabled={runningTasks.has('stop_worker')}
-                    >
-                      {runningTasks.has('stop_worker') ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Stop'}
-                    </Button>
+                    {worker ? (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-white/20 text-white"
+                          onClick={handleRestartWorker}
+                          disabled={runningTasks.has('restart_worker')}
+                        >
+                          {runningTasks.has('restart_worker') ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Restart'}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-red-500/50 text-red-400"
+                          onClick={handleStopWorker}
+                          disabled={runningTasks.has('stop_worker')}
+                        >
+                          {runningTasks.has('stop_worker') ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Stop'}
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        size="sm"
+                        className="bg-gradient-to-r from-violet-600 to-pink-600"
+                        onClick={handleProvisionVPS}
+                        disabled={isProvisioning}
+                      >
+                        {isProvisioning ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Play className="w-4 h-4 mr-2" />}
+                        {isProvisioning ? 'Provisioning...' : 'Setup Worker'}
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -752,6 +821,37 @@ export function StoreContent({ store }: StoreContentProps) {
                 </div>
               </div>
             </div>
+          </div>
+        )
+
+      case 'integrations':
+        return (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-2xl font-bold text-white">Integrations</h1>
+                <p className="text-slate-400">Connect your store to external services</p>
+              </div>
+              <Badge className="bg-green-500/20 text-green-400">
+                {Object.values(integrations).filter(i => i.connected).length} of {Object.keys(integrations).length} Connected
+              </Badge>
+            </div>
+            <StoreIntegrations
+              storeId={store.id}
+              integrations={integrations}
+              onConnectShopify={() => handleConnect('shopify')}
+              onConnectMeta={() => handleConnect('meta')}
+              onConnectCJ={() => handleConnect('cj')}
+              onConfigureAI={() => handleConnect('ai')}
+              onConnectGitHub={() => handleConnect('github')}
+              onConnectVercel={() => handleConnect('vercel')}
+              onEditShopify={(creds) => handleEdit('shopify', creds)}
+              onEditMeta={(creds) => handleEdit('meta', creds)}
+              onEditCJ={(creds) => handleEdit('cj', creds)}
+              onEditAI={(creds) => handleEdit('ai', creds)}
+              onEditGitHub={(creds) => handleEdit('github', creds)}
+              onEditVercel={(creds) => handleEdit('vercel', creds)}
+            />
           </div>
         )
 

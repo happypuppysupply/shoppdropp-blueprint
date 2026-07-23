@@ -67,4 +67,11 @@ export const vps = {
 
   // Health check
   health: () => vpsApi('/health'),
+
+  // VPS Provisioning
+  provision: {
+    createAndProvision: (storeId: string) => vpsApi('/vps/create-and-provision', { method: 'POST', body: { storeId } }),
+    provision: (workerId: string, envVars?: any) => vpsApi(`/vps/provision/${workerId}`, { method: 'POST', body: { envVars } }),
+    status: (workerId: string) => vpsApi(`/vps/status/${workerId}`),
+  },
 }

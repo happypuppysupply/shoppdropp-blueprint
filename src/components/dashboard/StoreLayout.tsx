@@ -57,7 +57,6 @@ const STORE_PAGES = [
   { id: 'overview', label: 'Overview', icon: LayoutDashboard },
   { id: 'ai-agent', label: 'AI Agent', icon: Bot },
   { id: 'integrations', label: 'Integrations', icon: Link2 },
-  { id: 'ai-workflow', label: 'AI Workflow', icon: Sparkles },
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
