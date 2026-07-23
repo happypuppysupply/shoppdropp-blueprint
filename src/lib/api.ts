@@ -6,12 +6,16 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 export const api = {
   async getToken(): Promise<string | null> {
     const { data: { session } } = await supabase.auth.getSession()
-    return session?.access_token || null
+    const token = session?.access_token || null
+    console.log('[API] Got token:', token ? `${token.substring(0, 20)}...` : 'null')
+    return token
   },
 
   async request(endpoint: string, options: RequestInit = {}) {
     const token = await this.getToken()
     const url = `${API_URL}/api${endpoint}`
+    
+    console.log('[API] Request:', options.method || 'GET', endpoint, 'Token present:', !!token)
     
     const response = await fetch(url, {
       ...options,
