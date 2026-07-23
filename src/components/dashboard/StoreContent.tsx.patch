@@ -1,0 +1,41 @@
+--- a/src/components/dashboard/StoreContent.tsx
++++ b/src/components/dashboard/StoreContent.tsx
+@@ -11,6 +11,7 @@ import { GitHubConnectModal } from './GitHubConnectModal'
+ import { VercelConnectModal } from './VercelConnectModal'
+ import { useState, useEffect, useRef } from 'react'
+ import { getSupabaseClient } from '@/lib/supabase-client'
++import { api } from '@/lib/api'
+ import { vps } from '@/lib/vps-api'
+ import { useStore } from './StoreLayout'
+ import { useRouter } from 'next/navigation'
+@@ -102,16 +103,22 @@ export function StoreContent({ store }: StoreContentProps) {
+     let cancelled = false
+ 
+     async function fetchWorkerData() {
+       try {
+         setWorkerLoading(true)
+-        const res = await fetch('/api/ai-chat/context')
+-        if (!res.ok) throw new Error(`HTTP ${res.status}`)
+-        const data = await res.json()
+-        if (!cancelled) {
+-          setWorker(data.worker || null)
+-          if (data.recent_tasks) {
+-            setTaskResults(data.recent_tasks)
+-          }
++        
++        // Get workers from backend API
++        const workers = await api.workers.list()
++        
++        // Find worker for this store
++        const storeWorker = workers.find((w: any) => w.store_id === store.id)
++        
++        if (!cancelled && storeWorker) {
++          setWorker({
++            id: storeWorker.id,
++            status: storeWorker.status,
++            ip: storeWorker.ip_address,
++            server_id: storeWorker.hetzner_server_id,
++          })
+         }
+       } catch (err) {
+         console.error('Failed to fetch worker data:', err)
