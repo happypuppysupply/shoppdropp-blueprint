@@ -100,7 +100,7 @@ export function StoreContent({ store }: StoreContentProps) {
 
     let cancelled = false
 
-    async function fetchWorkerData() {
+    async function fetchWorkerData() { console.log("[Worker] Fetching for store:", store.id)
       try {
         setWorkerLoading(true)
         // Try to get worker from backend API
