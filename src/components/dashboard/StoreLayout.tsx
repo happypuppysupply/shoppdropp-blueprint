@@ -117,9 +117,10 @@ export function StoreLayout({ children }: { children: React.ReactNode }) {
       let storesList: any[] = []
       
       try {
-        const { data: { user } } = await supabase.auth.getUser()
+        const supabaseClient = getSupabaseClient()
+        const { data: { user } } = await supabaseClient.auth.getUser()
         if (user) {
-          const { data, error } = await supabase
+          const { data, error } = await supabaseClient
             .from('stores')
             .select('*')
             .eq('user_id', user.id)
