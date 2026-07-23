@@ -635,6 +635,69 @@ export function StoreContent({ store }: StoreContentProps) {
                 </div>
               </div>
 
+              {/* AI Workflow Pipeline */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-bold text-white">AI Workflow</h2>
+                  <Button 
+                    size="sm" 
+                    className="bg-gradient-to-r from-violet-600 to-pink-600"
+                    onClick={() => {
+                      runTask('full_workflow')
+                    }}
+                    disabled={runningTasks.has('full_workflow') || !worker}
+                  >
+                    {runningTasks.has('full_workflow') ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Play className="w-4 h-4 mr-2" />}
+                    Run Full Workflow
+                  </Button>
+                </div>
+                
+                {!worker && (
+                  <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                    <p className="text-sm text-amber-400">Setup a VPS Worker first to run the AI workflow</p>
+                  </div>
+                )}
+                
+                <div className="space-y-3">
+                  {[
+                    { id: 'product-research', title: 'Product Research', desc: 'AI analyzes trending products and market demand', status: taskResults.find(t => t.task === 'product_research')?.status || 'waiting', icon: Search, color: 'blue' },
+                    { id: 'cj-dropshipping', title: 'CJ Dropshipping Import', desc: 'Import winning products to Shopify', status: taskResults.find(t => t.task === 'cj_dropshipping')?.status || 'waiting', icon: Package, color: 'green' },
+                    { id: 'meta-ads', title: 'Meta Ads Launch', desc: 'Auto-create Facebook & Instagram campaigns', status: taskResults.find(t => t.task === 'meta_ads_launch')?.status || 'waiting', icon: Target, color: 'orange' },
+                    { id: 'measure-results', title: 'Measure Results', desc: 'Track ROAS and performance metrics', status: taskResults.find(t => t.task === 'measure_results')?.status || 'waiting', icon: BarChart3, color: 'pink' },
+                  ].map((step, index) => (
+                    <div key={step.id} className="p-4 rounded-lg bg-white/5 border border-white/10">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-lg bg-${step.color}-500/20 flex items-center justify-center`}>
+                          <step.icon className={`w-4 h-4 text-${step.color}-400`} />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-medium text-white">{step.title}</h4>
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${
+                              step.status === 'completed' ? 'bg-green-500/20 text-green-400' :
+                              step.status === 'running' ? 'bg-blue-500/20 text-blue-400' :
+                              'bg-slate-500/20 text-slate-400'
+                            }`}>
+                              {step.status}
+                            </span>
+                          </div>
+                          <p className="text-sm text-slate-400">{step.desc}</p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-white/20 text-white"
+                          onClick={() => runTask(step.id)}
+                          disabled={runningTasks.has(step.id) || !worker}
+                        >
+                          {runningTasks.has(step.id) ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Run'}
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {/* Available Tasks */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="p-4 rounded-lg bg-white/5 border border-white/10">
