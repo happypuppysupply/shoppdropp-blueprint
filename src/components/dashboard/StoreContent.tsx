@@ -130,7 +130,7 @@ export function StoreContent({ store }: StoreContentProps) {
       cancelled = true
       clearInterval(interval)
     }
-  }, [selectedPage])
+  }, [selectedPage, store.id])
 
   async function loadIntegrations() {
     // Happy Puppy store - show all as connected with real credentials
