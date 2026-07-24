@@ -743,8 +743,8 @@ export function StoreContent({ store }: StoreContentProps) {
 
       setTaskResults(prev => [{ task: 'vps_provision', status: 'completed', message: `VPS Worker created: ${response.workerId || 'New Worker'}`, timestamp: new Date().toISOString() }, ...prev])
 
-      // Navigate to build progress page to watch the build
-      router.push(`/app/dashboard/build-progress?storeId=${store.id}`)
+      // Navigate to provision progress page to watch the build
+      router.push(`/app/provision?workerId=${response.workerId}`)
     } catch (error: any) {
       console.error('[VPS] Failed to provision:', error)
       setTaskResults(prev => [{ task: 'vps_provision', status: 'failed', message: error.message || 'Provisioning failed', timestamp: new Date().toISOString() }, ...prev])
@@ -764,34 +764,8 @@ export function StoreContent({ store }: StoreContentProps) {
       return
     }
     
-    try {
-      setIsReprovisioning(true)
-      setTaskResults(prev => [{ task: 'vps_reprovision', status: 'running', message: 'Reprovisioning VPS with real worker...', timestamp: new Date().toISOString() }, ...prev])
-
-      console.log('[VPS] Starting reprovision for worker:', worker.id)
-      
-      // Call the reprovision API
-      const { data: { session } } = await getSupabaseClient().auth.getSession()
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/workers/${worker.id}/reprovision`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(session && { 'Authorization': `Bearer ${session.access_token}` })
-        }
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Reprovisioning failed')
-      }
-
-      const result = await response.json()
-      console.log('[VPS] Reprovision response:', result)
-
-      setTaskResults(prev => [{ task: 'vps_reprovision', status: 'completed', message: `VPS reprovisioned: ${result.ip_address}`, timestamp: new Date().toISOString() }, ...prev])
-      
-      // Refresh worker data by reloading the page
-      window.location.reload()
+    // Redirect to provision progress page
+    router.push(`/app/provision?workerId=${worker.id}`)
     } catch (error: any) {
       console.error('[VPS] Failed to reprovision:', error)
       setTaskResults(prev => [{ task: 'vps_reprovision', status: 'failed', message: error.message || 'Reprovisioning failed', timestamp: new Date().toISOString() }, ...prev])
