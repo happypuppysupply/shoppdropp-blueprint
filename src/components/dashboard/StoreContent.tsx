@@ -1,6 +1,6 @@
 'use client'
 
-import { Store, Sparkles, Send, Bot, User, TrendingUp, Eye, MousePointer, DollarSign, CheckCircle, AlertCircle, Loader2, Play, Search, Package, Target, BarChart3 } from 'lucide-react'
+import { Store, Sparkles, Send, Bot, User, TrendingUp, Eye, MousePointer, DollarSign, CheckCircle, AlertCircle, Loader2, Play, Search, Package, Target, BarChart3, RefreshCw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { StoreIntegrations } from './StoreIntegrations'
@@ -10,6 +10,10 @@ import { CJDropshippingConnectModal } from './CJDropshippingConnectModal'
 import { AIProviderModal } from './AIProviderModal'
 import { GitHubConnectModal } from './GitHubConnectModal'
 import { VercelConnectModal } from './VercelConnectModal'
+import { APIKeyPromptModal } from './APIKeyPromptModal'
+import { ProductResearchResults } from './ProductResearchResults'
+import { WorkflowTaskCard } from './WorkflowTaskCard'
+import { TaskWorkerPanel, TaskActivity } from './TaskWorkerPanel'
 import { useState, useEffect, useRef } from 'react'
 import { getSupabaseClient } from '@/lib/supabase-client'
 import { api } from '@/lib/api'
@@ -50,7 +54,7 @@ interface WorkerData {
 
 interface TaskResult {
   task: string
-  status: 'pending' | 'running' | 'completed' | 'failed'
+  status: 'pending' | 'queued' | 'running' | 'completed' | 'failed'
   message?: string
   timestamp: string
 }
@@ -70,6 +74,12 @@ export function StoreContent({ store }: StoreContentProps) {
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
   const [editingCredentials, setEditingCredentials] = useState<any>(null)
 
+  // API Key prompt modal
+  const [apiKeyPrompt, setApiKeyPrompt] = useState<{ isOpen: boolean; integrationType: string }>({
+    isOpen: false,
+    integrationType: ''
+  })
+
   // Chat state
   const [chatInput, setChatInput] = useState('')
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
@@ -82,9 +92,269 @@ export function StoreContent({ store }: StoreContentProps) {
   const [worker, setWorker] = useState<WorkerData | null>(null)
   const [workerLoading, setWorkerLoading] = useState(false)
   const [isProvisioning, setIsProvisioning] = useState(false)
+  const [isReprovisioning, setIsReprovisioning] = useState(false)
   const [taskResults, setTaskResults] = useState<TaskResult[]>([])
-  const [runningTasks, setRunningTasks] = useState<Set<string>>(new Set())
+  const [taskQueue, setTaskQueue] = useState<Array<{task: string; payload?: Record<string, unknown>; id: string}>>([])
+  const [currentTask, setCurrentTask] = useState<string | null>(null)
+  const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set())
+  const [researchResults, setResearchResults] = useState<any[]>([])
+  // Per-task activities - each task has its own activity log
+  const [taskActivities, setTaskActivities] = useState<Record<string, TaskActivity[]>>({})
+  const [wsConnected, setWsConnected] = useState(false)
+  const wsRef = useRef<WebSocket | null>(null)
   const router = useRouter()
+  
+  // Connect to OpenClaw Gateway via WebSocket (proxied through backend)
+  useEffect(() => {
+    if (!worker?.id) return
+    
+    // Get JWT token from localStorage or cookie
+    const token = localStorage.getItem('token') || localStorage.getItem('auth_token') || ''
+    
+    // Use backend proxy for secure WebSocket connection with token
+    const wsUrl = `${process.env.NEXT_PUBLIC_API_URL?.replace('https://', 'wss://').replace('http://', 'ws://')}/ws/worker/${worker.id}?token=${encodeURIComponent(token)}`
+    console.log('[WebSocket] Connecting via backend proxy:', wsUrl.replace(token, '[REDACTED]'))
+    
+    const ws = new WebSocket(wsUrl)
+    wsRef.current = ws
+    
+    ws.onopen = () => {
+      console.log('[WebSocket] Connected to OpenClaw Gateway')
+      setWsConnected(true)
+      addTaskActivity('system', 'system', 'Connected to OpenClaw AI Agent')
+    }
+    
+    ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data)
+      console.log('[WebSocket] Message:', msg)
+      
+      if (msg.type === 'chat_response') {
+        setChatMessages(prev => [...prev, {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: msg.content,
+          timestamp: new Date()
+        }])
+        setIsTyping(false)
+      } else if (msg.type === 'task_complete') {
+        addTaskActivity(msg.task || 'system', 'result', `Task completed: ${JSON.stringify(msg.result)}`)
+      } else if (msg.type === 'system') {
+        addTaskActivity('system', 'system', msg.message)
+      }
+    }
+    
+    ws.onclose = () => {
+      console.log('[WebSocket] Disconnected')
+      setWsConnected(false)
+    }
+    
+    ws.onerror = (error) => {
+      console.error('[WebSocket] Error:', error)
+      setWsConnected(false)
+    }
+    
+    return () => {
+      ws.close()
+    }
+  }, [worker?.ip])
+  
+  // Add activity to a specific task
+  const addTaskActivity = (taskName: string, type: TaskActivity['type'], message: string, details?: any) => {
+    const activity: TaskActivity = {
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+      timestamp: new Date().toISOString(),
+      type,
+      message,
+      details
+    }
+    setTaskActivities(prev => ({
+      ...prev,
+      [taskName]: [...(prev[taskName] || []), activity]
+    }))
+  }
+  
+  // Clear activities for a specific task
+  const clearTaskActivities = (taskName: string) => {
+    setTaskActivities(prev => ({ ...prev, [taskName]: [] }))
+  }
+  
+  // Stop a running task
+  const stopTask = async (taskName: string) => {
+    addTaskActivity(taskName, 'system', '⏹️ Stopping task...')
+    // TODO: Call backend to cancel the task
+    setCurrentTask(null)
+    setTaskQueue(prev => prev.filter(t => t.task !== taskName))
+    setTaskResults(prev => [
+      { task: taskName, status: 'failed', message: 'Stopped by user', timestamp: new Date().toISOString() },
+      ...prev.filter(t => t.task !== taskName)
+    ])
+  }
+  
+  // Send message to worker for a specific task
+  const sendTaskMessage = (taskName: string, message: string) => {
+    addTaskActivity(taskName, 'user', message)
+    // Simulate AI response
+    setTimeout(() => {
+      addTaskActivity(taskName, 'ai', `Received: "${message}". I'm working on ${taskName.replace(/_/g, ' ')}...`)
+    }, 500)
+  }
+  
+  // Check environment on mount
+  useEffect(() => {
+    const checkEnv = async () => {
+      console.log('🔍 Environment:', {
+        'OpenRouter API Key': !!process.env.NEXT_PUBLIC_OPENROUTER_API_KEY,
+        'Supabase URL': !!process.env.NEXT_PUBLIC_SUPABASE_URL,
+        'Backend API': !!process.env.NEXT_PUBLIC_API_URL,
+      })
+    }
+    checkEnv()
+  }, [])
+  
+  // Process task queue sequentially
+  useEffect(() => {
+    if (!worker || taskQueue.length === 0 || currentTask) return
+    
+    const processNextTask = async () => {
+      const nextTask = taskQueue[0]
+      setCurrentTask(nextTask.task)
+      
+      // Clear previous activities for this task
+      clearTaskActivities(nextTask.task)
+      
+      // Add initial activity
+      addTaskActivity(nextTask.task, 'system', `Initializing ${nextTask.task.replace(/_/g, ' ')} workflow...`)
+      
+      // Update task status
+      setTaskResults(prev => [
+        { task: nextTask.task, status: 'running', message: 'Task is running...', timestamp: new Date().toISOString() },
+        ...prev.filter(t => t.task !== nextTask.task)
+      ])
+      
+      try {
+        addTaskActivity(nextTask.task, 'system', `Starting ${nextTask.task.replace(/_/g, ' ')}...`)
+        
+        // Call the backend to execute the task
+        const result = await executeTask(nextTask.task, nextTask.payload)
+        
+        if (result?.success) {
+          // Check if this is a background task that will complete later
+          if (result.status === 'running' || result.status === 'queued') {
+            addTaskActivity(nextTask.task, 'system', `Task is now running on the worker. This may take 5-10 minutes.`)
+            setTaskResults(prev => [
+              { task: nextTask.task, status: 'running', message: 'Running on worker (check back in 5-10 min)', timestamp: new Date().toISOString() },
+              ...prev.filter(t => t.task !== nextTask.task)
+            ])
+          } else {
+            addTaskActivity(nextTask.task, 'result', `Workflow completed successfully`)
+            setTaskResults(prev => [
+              { task: nextTask.task, status: 'completed', message: 'Completed', timestamp: new Date().toISOString() },
+              ...prev.filter(t => t.task !== nextTask.task)
+            ])
+            setCompletedTasks(prev => new Set(prev).add(nextTask.task))
+          }
+        } else {
+          addTaskActivity(nextTask.task, 'error', `Task failed: ${result?.error || 'Unknown error'}`)
+          setTaskResults(prev => [
+            { task: nextTask.task, status: 'failed', message: result?.error || 'Failed', timestamp: new Date().toISOString() },
+            ...prev.filter(t => t.task !== nextTask.task)
+          ])
+        }
+      } catch (err: any) {
+        addTaskActivity(nextTask.task, 'error', `Exception: ${err.message}`)
+        setTaskResults(prev => [
+          { task: nextTask.task, status: 'failed', message: err.message, timestamp: new Date().toISOString() },
+          ...prev.filter(t => t.task !== nextTask.task)
+        ])
+      } finally {
+        setCurrentTask(null)
+        setTaskQueue(prev => prev.slice(1)) // Remove completed task from queue
+      }
+    }
+    
+    processNextTask()
+  }, [taskQueue, currentTask, worker])
+  
+  // Poll for task completion from worker
+  useEffect(() => {
+    if (!worker) return
+    
+    const pollTaskStatus = async () => {
+      try {
+        const { data: { session } } = await getSupabaseClient().auth.getSession()
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/workers/${worker.id}/tasks`, {
+          headers: session ? { 'Authorization': `Bearer ${session.access_token}` } : {}
+        })
+        
+        if (res.ok) {
+          const data = await res.json()
+          
+          // Update research results
+          if (data.research_results?.length > 0) {
+            setResearchResults(data.research_results)
+            
+            // Check if any running tasks are now completed based on research results
+            data.research_results.forEach((result: any) => {
+              if (result.status === 'completed') {
+                // Update task status from running to completed
+                setTaskResults(prev => {
+                  const existing = prev.find(t => t.task === 'product_research' && t.status === 'running')
+                  if (existing) {
+                    return [
+                      { task: 'product_research', status: 'completed', message: `Found ${result.products_found} products`, timestamp: new Date().toISOString() },
+                      ...prev.filter(t => !(t.task === 'product_research' && t.status === 'running'))
+                    ]
+                  }
+                  return prev
+                })
+              }
+            })
+          }
+          
+          if (data.tasks?.length > 0) {
+            // Log completed tasks
+            data.tasks
+              .filter((t: any) => t.status === 'completed' || t.status === 'failed')
+              .forEach(async (task: any) => {
+                console.log(
+                  task.status === 'completed' ? 'success' : 'error',
+                  `Worker task ${task.status}: ${task.task_type}`,
+                  task.task_type,
+                  { task_id: task.id, result: task.result, error: task.error }
+                )
+              })
+          }
+        }
+      } catch (err) {
+        console.error('Failed to poll task status:', err)
+      }
+    }
+    
+    const interval = setInterval(pollTaskStatus, 30000) // Poll every 30 seconds
+    return () => clearInterval(interval)
+  }, [worker])
+  
+  // Add message to AI chat log
+  const addToChatLog = (role: 'user' | 'assistant', content: string) => {
+    setChatMessages(prev => [...prev, {
+      id: Date.now().toString(),
+      role,
+      content,
+      timestamp: new Date()
+    }])
+  }
+  
+  // Check if task is in queue or running
+  const isTaskQueuedOrRunning = (taskName: string) => {
+    return currentTask === taskName || taskQueue.some(t => t.task === taskName)
+  }
+  
+  // Get queue position for a task
+  const getQueuePosition = (taskName: string) => {
+    if (currentTask === taskName) return 0
+    const index = taskQueue.findIndex(t => t.task === taskName)
+    return index >= 0 ? index + 1 : -1
+  }
 
   useEffect(() => {
     loadIntegrations()
@@ -100,24 +370,48 @@ export function StoreContent({ store }: StoreContentProps) {
 
     let cancelled = false
 
-    async function fetchWorkerData() { console.log("[Worker] Fetching for store:", store.id)
+    async function fetchWorkerData() {
       try {
         setWorkerLoading(true)
         // Try to get worker from backend API
         const { data: { session } } = await getSupabaseClient().auth.getSession()
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/workers`, {
-          headers: session ? { 'Authorization': `Bearer ${session.access_token}` } : {}
+        const cacheBuster = `?_t=${Date.now()}`
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/workers${cacheBuster}`, {
+          headers: session ? { 'Authorization': `Bearer ${session.access_token}` } : {},
+          cache: 'no-store'
         })
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const data = await res.json()
         if (!cancelled) {
-          setWorker(data.worker || null)
+          const newWorker = data.worker || null
+          
+          // Log worker state changes
+          if (newWorker && !worker) {
+            console.log('success', `Worker connected`, undefined, { 
+              worker_id: newWorker.id,
+              ip: newWorker.ip,
+              status: newWorker.status 
+            })
+          } else if (!newWorker && worker) {
+            console.log('warning', `Worker disconnected`, undefined, { 
+              worker_id: worker.id 
+            })
+          } else if (newWorker && worker && newWorker.status !== worker.status) {
+            console.log('info', `Worker status changed: ${worker.status} → ${newWorker.status}`, undefined, {
+              worker_id: newWorker.id,
+              previous_status: worker.status,
+              current_status: newWorker.status
+            })
+          }
+          
+          setWorker(newWorker)
           if (data.recent_tasks) {
             setTaskResults(data.recent_tasks)
           }
         }
       } catch (err) {
         console.error('Failed to fetch worker data:', err)
+        console.log('error', `Failed to fetch worker data: ${err}`)
       } finally {
         if (!cancelled) setWorkerLoading(false)
       }
@@ -251,7 +545,19 @@ export function StoreContent({ store }: StoreContentProps) {
     setChatInput('')
     setIsTyping(true)
 
-    // Call OpenRouter API for real AI response
+    // If connected to OpenClaw Gateway via WebSocket, use that
+    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      console.log('[WebSocket] Sending message to OpenClaw Gateway')
+      wsRef.current.send(JSON.stringify({
+        type: 'chat',
+        content: chatInput,
+        history: chatMessages.map(m => ({ role: m.role, content: m.content }))
+      }))
+      // Response will come via onmessage handler
+      return
+    }
+
+    // Fallback: Call OpenRouter API directly from frontend
     try {
       const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
         method: 'POST',
@@ -300,34 +606,92 @@ export function StoreContent({ store }: StoreContentProps) {
     }
   }
 
-  // Run a task via the backend
-  const runTask = async (taskName: string, payload?: Record<string, unknown>) => {
-    setRunningTasks(prev => new Set(prev).add(taskName))
+  // Check if required API keys are configured for a task
+  const checkRequiredAPIKeys = (taskName: string): { required: boolean; missingIntegration?: string; missingName?: string } => {
+    const taskRequirements: Record<string, { integrations: string[]; description: string }> = {
+      'product_research': { integrations: ['ai'], description: 'Requires OpenRouter API key for AI-powered product analysis' },
+      'catalog_sync': { integrations: ['ai', 'shopify'], description: 'Requires AI provider and Shopify store connection' },
+      'price_optimization': { integrations: ['ai', 'shopify'], description: 'Requires AI provider and Shopify store connection' },
+      'inventory_check': { integrations: ['ai', 'shopify'], description: 'Requires AI provider and Shopify store connection' },
+      'meta_ads_create': { integrations: ['ai', 'meta_ads'], description: 'Requires AI provider and Meta Ads connection' },
+      'content_generation': { integrations: ['ai'], description: 'Requires OpenRouter API key for AI content generation' },
+      'performance_report': { integrations: ['ai'], description: 'Requires OpenRouter API key for AI report generation' },
+    }
+
+    const config = taskRequirements[taskName] || { integrations: ['ai'], description: 'Requires AI provider' }
+
+    for (const integration of config.integrations) {
+      if (!integrations[integration]?.connected) {
+        const integrationNames: Record<string, string> = {
+          'ai': 'AI Provider',
+          'shopify': 'Shopify',
+          'meta_ads': 'Meta Ads',
+        }
+        return { required: false, missingIntegration: integration, missingName: integrationNames[integration] || integration }
+      }
+    }
+    return { required: true }
+  }
+
+  // Execute task directly (used by queue processor)
+  const executeTask = async (taskName: string, payload?: Record<string, unknown>) => {
     try {
-      const res = await fetch('/api/ai-chat/task', {
+      const { data: { session } } = await getSupabaseClient().auth.getSession()
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/ai-chat/task`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session && { 'Authorization': `Bearer ${session.access_token}` })
+        },
         body: JSON.stringify({ task: taskName, store_id: store.id, ...payload }),
       })
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }))
+        throw new Error(errorData.error || `HTTP ${res.status}`)
+      }
       const data = await res.json()
       setTaskResults(prev => [
-        { task: taskName, status: data.status || 'completed', message: data.message, timestamp: new Date().toISOString() },
-        ...prev
+        { task: taskName, status: data.status || 'queued', message: data.message, timestamp: new Date().toISOString() },
+        ...prev.filter(t => !(t.task === taskName && t.status === 'running'))
       ])
-      return data
+      return { success: true, ...data }
     } catch (err: any) {
-      setTaskResults(prev => [
-        { task: taskName, status: 'failed', message: err.message, timestamp: new Date().toISOString() },
-        ...prev
-      ])
-    } finally {
-      setRunningTasks(prev => {
-        const next = new Set(prev)
-        next.delete(taskName)
-        return next
-      })
+      return { success: false, error: err.message }
     }
+  }
+
+  // Add task to queue
+  const runTask = async (taskName: string, payload?: Record<string, unknown>) => {
+    // Check API keys first with specific error message
+    const apiCheck = checkRequiredAPIKeys(taskName)
+    if (!apiCheck.required) {
+      const missingName = apiCheck.missingName || apiCheck.missingIntegration
+      console.log('warning', `Cannot run ${taskName.replace(/_/g, ' ')}: ${missingName} not configured`, taskName, { 
+        required: apiCheck.missingIntegration,
+        suggestion: `Please configure ${missingName} in settings`
+      })
+      setApiKeyPrompt({ isOpen: true, integrationType: apiCheck.missingIntegration! })
+      return
+    }
+    
+    // Check if task is already in queue or running
+    if (isTaskQueuedOrRunning(taskName)) {
+      console.log('warning', `Task already ${currentTask === taskName ? 'running' : 'in queue'}`, taskName)
+      return
+    }
+    
+    // Add to queue
+    const queueItem = { task: taskName, payload, id: Date.now().toString() }
+    setTaskQueue(prev => [...prev, queueItem])
+    
+    const position = taskQueue.length + 1
+    console.log('info', `Added to queue (position ${position})`, taskName)
+    
+    // Update UI
+    setTaskResults(prev => [
+      { task: taskName, status: 'queued', message: `Position ${position} in queue`, timestamp: new Date().toISOString() },
+      ...prev.filter(t => t.task !== taskName)
+    ])
   }
 
   const handleRestartWorker = async () => {
@@ -337,25 +701,93 @@ export function StoreContent({ store }: StoreContentProps) {
   const handleStopWorker = async () => {
     await runTask('stop_worker')
   }
+  
+  // Run full workflow - queue all tasks
+  const handleRunFullWorkflow = async () => {
+    if (!worker) {
+      console.log('warning', 'Cannot start workflow: No VPS worker configured')
+      return
+    }
+    
+    const workflowTasks = ['product_research', 'catalog_sync', 'price_optimization', 'performance_report']
+    
+    console.log('info', '🚀 Starting full workflow', undefined, { tasks: workflowTasks })
+    
+    for (const taskName of workflowTasks) {
+      await runTask(taskName)
+    }
+  }
 
   const handleProvisionVPS = async () => {
     try {
       setIsProvisioning(true)
       setTaskResults(prev => [{ task: 'vps_provision', status: 'running', message: 'Creating and provisioning VPS...', timestamp: new Date().toISOString() }, ...prev])
-      
+
+      console.log('[VPS] Starting provision for store:', store.id)
+      console.log('[VPS] API URL:', process.env.NEXT_PUBLIC_API_URL)
+
       // Call the real VPS provisioning API
       const response = await vps.provision.createAndProvision(store.id)
-      
+
+      console.log('[VPS] Provision response:', response)
+
       setTaskResults(prev => [{ task: 'vps_provision', status: 'completed', message: `VPS Worker created: ${response.workerId || 'New Worker'}`, timestamp: new Date().toISOString() }, ...prev])
-      
+
       // Navigate to build progress page to watch the build
       router.push(`/app/dashboard/build-progress?storeId=${store.id}`)
     } catch (error: any) {
-      console.error('Failed to provision VPS:', error)
+      console.error('[VPS] Failed to provision:', error)
       setTaskResults(prev => [{ task: 'vps_provision', status: 'failed', message: error.message || 'Provisioning failed', timestamp: new Date().toISOString() }, ...prev])
       alert('Failed to provision VPS: ' + (error.message || 'Unknown error'))
     } finally {
       setIsProvisioning(false)
+    }
+  }
+
+  const handleReprovisionVPS = async () => {
+    if (!worker?.id) {
+      alert('No worker to reprovision')
+      return
+    }
+    
+    if (!confirm('This will destroy the current VPS and create a new one with the real worker. Continue?')) {
+      return
+    }
+    
+    try {
+      setIsReprovisioning(true)
+      setTaskResults(prev => [{ task: 'vps_reprovision', status: 'running', message: 'Reprovisioning VPS with real worker...', timestamp: new Date().toISOString() }, ...prev])
+
+      console.log('[VPS] Starting reprovision for worker:', worker.id)
+      
+      // Call the reprovision API
+      const { data: { session } } = await getSupabaseClient().auth.getSession()
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/workers/${worker.id}/reprovision`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(session && { 'Authorization': `Bearer ${session.access_token}` })
+        }
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Reprovisioning failed')
+      }
+
+      const result = await response.json()
+      console.log('[VPS] Reprovision response:', result)
+
+      setTaskResults(prev => [{ task: 'vps_reprovision', status: 'completed', message: `VPS reprovisioned: ${result.ip_address}`, timestamp: new Date().toISOString() }, ...prev])
+      
+      // Refresh worker data by reloading the page
+      window.location.reload()
+    } catch (error: any) {
+      console.error('[VPS] Failed to reprovision:', error)
+      setTaskResults(prev => [{ task: 'vps_reprovision', status: 'failed', message: error.message || 'Reprovisioning failed', timestamp: new Date().toISOString() }, ...prev])
+      alert('Failed to reprovision VPS: ' + (error.message || 'Unknown error'))
+    } finally {
+      setIsReprovisioning(false)
     }
   }
 
@@ -579,9 +1011,9 @@ export function StoreContent({ store }: StoreContentProps) {
                       {worker?.server_id ? `Server: ${worker.server_id}` : 'Hetzner Cloud • CX21 Instance'}
                     </p>
                     <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
-                      <span>IP: {worker?.ip || '—'}</span>
+                      <span>IP: {worker?.ip || '-'}</span>
                       <span>•</span>
-                      <span>Uptime: {worker?.uptime || '—'}</span>
+                      <span>Uptime: {worker?.uptime || '-'}</span>
                       {worker?.cpu_percent !== undefined && (
                         <>
                           <span>•</span>
@@ -594,6 +1026,10 @@ export function StoreContent({ store }: StoreContentProps) {
                           <span>RAM: {worker.memory_percent}%</span>
                         </>
                       )}
+                      <span>•</span>
+                      <span className={wsConnected ? 'text-green-400' : 'text-amber-400'}>
+                        {wsConnected ? '● OpenClaw Connected' : '○ OpenClaw Disconnected'}
+                      </span>
                     </div>
                     {worker?.current_task && (
                       <div className="mt-2 text-xs text-amber-400">
@@ -609,18 +1045,27 @@ export function StoreContent({ store }: StoreContentProps) {
                           size="sm"
                           className="border-white/20 text-white"
                           onClick={handleRestartWorker}
-                          disabled={runningTasks.has('restart_worker')}
+                          disabled={isTaskQueuedOrRunning('restart_worker')}
                         >
-                          {runningTasks.has('restart_worker') ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Restart'}
+                          {isTaskQueuedOrRunning('restart_worker') ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Restart'}
                         </Button>
                         <Button
                           variant="outline"
                           size="sm"
                           className="border-red-500/50 text-red-400"
                           onClick={handleStopWorker}
-                          disabled={runningTasks.has('stop_worker')}
+                          disabled={isTaskQueuedOrRunning('stop_worker')}
                         >
-                          {runningTasks.has('stop_worker') ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Stop'}
+                          {isTaskQueuedOrRunning('stop_worker') ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Stop'}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="border-amber-500/50 text-amber-400"
+                          onClick={handleReprovisionVPS}
+                          disabled={isReprovisioning}
+                        >
+                          {isReprovisioning ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Reprovision'}
                         </Button>
                       </>
                     ) : (
@@ -642,155 +1087,85 @@ export function StoreContent({ store }: StoreContentProps) {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <h2 className="text-xl font-bold text-white">AI Workflow</h2>
-                  <Button 
-                    size="sm" 
+                  <Button
+                    size="sm"
                     className="bg-gradient-to-r from-violet-600 to-pink-600"
-                    onClick={() => {
-                      runTask('full_workflow')
-                    }}
-                    disabled={runningTasks.has('full_workflow') || !worker}
+                    onClick={handleRunFullWorkflow}
+                    disabled={!worker || taskQueue.length > 0}
                   >
-                    {runningTasks.has('full_workflow') ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Play className="w-4 h-4 mr-2" />}
+                    {currentTask ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Play className="w-4 h-4 mr-2" />}
                     Run Full Workflow
                   </Button>
                 </div>
                 
+                {/* Queue Status */}
+                {(taskQueue.length > 0 || currentTask) && (
+                  <div className="p-3 rounded-lg bg-violet-500/10 border border-violet-500/20">
+                    <div className="flex items-center gap-2 text-sm text-violet-300">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>
+                        {currentTask ? `Running: ${currentTask.replace(/_/g, ' ')}` : 'Processing...'}
+                        {taskQueue.length > 0 && ` (${taskQueue.length} in queue)`}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
                 {!worker && (
                   <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
                     <p className="text-sm text-amber-400">Setup a VPS Worker first to run the AI workflow</p>
                   </div>
                 )}
-                
-                <div className="space-y-3">
+
+                <div className="space-y-4">
                   {[
-                    { id: 'product-research', title: 'Product Research', desc: 'AI analyzes trending products and market demand', status: taskResults.find(t => t.task === 'product_research')?.status || 'waiting', icon: Search, color: 'blue' },
-                    { id: 'cj-dropshipping', title: 'CJ Dropshipping Import', desc: 'Import winning products to Shopify', status: taskResults.find(t => t.task === 'cj_dropshipping')?.status || 'waiting', icon: Package, color: 'green' },
-                    { id: 'meta-ads', title: 'Meta Ads Launch', desc: 'Auto-create Facebook & Instagram campaigns', status: taskResults.find(t => t.task === 'meta_ads_launch')?.status || 'waiting', icon: Target, color: 'orange' },
-                    { id: 'measure-results', title: 'Measure Results', desc: 'Track ROAS and performance metrics', status: taskResults.find(t => t.task === 'measure_results')?.status || 'waiting', icon: BarChart3, color: 'pink' },
-                  ].map((step, index) => (
-                    <div key={step.id} className="p-4 rounded-lg bg-white/5 border border-white/10">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-lg bg-${step.color}-500/20 flex items-center justify-center`}>
-                          <step.icon className={`w-4 h-4 text-${step.color}-400`} />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <h4 className="font-medium text-white">{step.title}</h4>
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${
-                              step.status === 'completed' ? 'bg-green-500/20 text-green-400' :
-                              step.status === 'running' ? 'bg-blue-500/20 text-blue-400' :
-                              'bg-slate-500/20 text-slate-400'
-                            }`}>
-                              {step.status}
-                            </span>
-                          </div>
-                          <p className="text-sm text-slate-400">{step.desc}</p>
-                        </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="border-white/20 text-white"
-                          onClick={() => runTask(step.id)}
-                          disabled={runningTasks.has(step.id) || !worker}
-                        >
-                          {runningTasks.has(step.id) ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Run'}
-                        </Button>
-                      </div>
+                    { id: 'product_research', title: 'Product Research', desc: 'AI analyzes trending products and market demand', status: taskResults.find(t => t.task === 'product_research')?.status || 'waiting', icon: Search, color: 'blue' },
+                    { id: 'catalog_sync', title: 'Catalog Sync', desc: 'Sync products from suppliers to Shopify', status: taskResults.find(t => t.task === 'catalog_sync')?.status || 'waiting', icon: Package, color: 'green' },
+                    { id: 'price_optimization', title: 'Price Optimization', desc: 'AI-powered pricing adjustments', status: taskResults.find(t => t.task === 'price_optimization')?.status || 'waiting', icon: Target, color: 'orange' },
+                    { id: 'performance_report', title: 'Performance Report', desc: 'Track ROAS and performance metrics', status: taskResults.find(t => t.task === 'performance_report')?.status || 'waiting', icon: BarChart3, color: 'pink' },
+                  ].map((step) => (
+                    <div key={step.id}>
+                      <WorkflowTaskCard
+                        id={step.id}
+                        title={step.title}
+                        description={step.desc}
+                        status={step.status as any}
+                        icon={<step.icon className={`w-4 h-4 text-${step.color}-400`} />}
+                        color={step.color}
+                        onRun={() => runTask(step.id)}
+                        disabled={!worker || isTaskQueuedOrRunning(step.id)}
+                        queuePosition={getQueuePosition(step.id)}
+                        lastResult={taskResults.find(t => t.task === step.id)?.message}
+                      />
+                      {/* Per-Task Worker Console */}
+                      <TaskWorkerPanel
+                        taskId={step.id}
+                        taskName={step.title}
+                        status={step.status as any}
+                        activities={taskActivities[step.id] || []}
+                        isActive={currentTask === step.id}
+                        onStop={() => stopTask(step.id)}
+                        onSendMessage={(msg) => sendTaskMessage(step.id, msg)}
+                      />
                     </div>
                   ))}
                 </div>
               </div>
-
-              {/* Available Tasks */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="p-4 rounded-lg bg-white/5 border border-white/10">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
-                      <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                      </svg>
-                    </div>
-                    <h4 className="font-medium text-white">Product Research</h4>
-                  </div>
-                  <p className="text-sm text-slate-400 mb-3">Find trending products using AI analysis</p>
-                  <Button
-                    size="sm"
-                    className="w-full bg-blue-600/50 hover:bg-blue-600"
-                    onClick={() => runTask('product_research')}
-                    disabled={runningTasks.has('product_research')}
-                  >
-                    {runningTasks.has('product_research') ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                    Run Task
-                  </Button>
-                </div>
-
-                <div className="p-4 rounded-lg bg-white/5 border border-white/10">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
-                      <svg className="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
-                      </svg>
-                    </div>
-                    <h4 className="font-medium text-white">Catalog Sync</h4>
-                  </div>
-                  <p className="text-sm text-slate-400 mb-3">Sync products with Shopify</p>
-                  <Button
-                    size="sm"
-                    className="w-full bg-green-600/50 hover:bg-green-600"
-                    onClick={() => runTask('catalog_sync')}
-                    disabled={runningTasks.has('catalog_sync')}
-                  >
-                    {runningTasks.has('catalog_sync') ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                    Run Task
-                  </Button>
-                </div>
-
-                <div className="p-4 rounded-lg bg-white/5 border border-white/10">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-8 h-8 rounded-lg bg-orange-500/20 flex items-center justify-center">
-                      <svg className="w-4 h-4 text-orange-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                    <h4 className="font-medium text-white">Price Optimization</h4>
-                  </div>
-                  <p className="text-sm text-slate-400 mb-3">AI-powered pricing adjustments</p>
-                  <Button
-                    size="sm"
-                    className="w-full bg-orange-600/50 hover:bg-orange-600"
-                    onClick={() => runTask('price_optimization')}
-                    disabled={runningTasks.has('price_optimization')}
-                  >
-                    {runningTasks.has('price_optimization') ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                    Run Task
-                  </Button>
-                </div>
-
-                <div className="p-4 rounded-lg bg-white/5 border border-white/10">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="w-8 h-8 rounded-lg bg-pink-500/20 flex items-center justify-center">
-                      <svg className="w-4 h-4 text-pink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
-                      </svg>
-                    </div>
-                    <h4 className="font-medium text-white">Meta Ads Sync</h4>
-                  </div>
-                  <p className="text-sm text-slate-400 mb-3">Sync campaigns and analytics</p>
-                  <Button
-                    size="sm"
-                    className="w-full bg-pink-600/50 hover:bg-pink-600"
-                    onClick={() => runTask('meta_ads_sync')}
-                    disabled={runningTasks.has('meta_ads_sync')}
-                  >
-                    {runningTasks.has('meta_ads_sync') ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                    Run Task
-                  </Button>
-                </div>
-              </div>
-
-              {/* Task Log */}
+              
+              {/* Product Research Results - Show when research is complete */}
+              {researchResults.length > 0 && (
+                <ProductResearchResults 
+                  results={researchResults}
+                  onImport={(product) => {
+                    console.log('Importing product:', product.title)
+                    // TODO: Implement actual import via CJ Dropshipping
+                  }}
+                />
+              )}
+              
+              {/* Task Results Summary */}
               <div className="p-4 rounded-lg bg-black/20 border border-white/5">
-                <h4 className="font-medium text-white mb-3">Recent Activity</h4>
+                <h4 className="font-medium text-white mb-3">Task Results</h4>
                 {taskResults.length === 0 ? (
                   <p className="text-sm text-slate-500">No recent tasks. Run a task above to see activity.</p>
                 ) : (
@@ -811,7 +1186,7 @@ export function StoreContent({ store }: StoreContentProps) {
                         }`}>
                           {t.status}
                         </span>
-                        {t.message && <span className="text-slate-600">— {t.message}</span>}
+                        {t.message && <span className="text-slate-600">- {t.message}</span>}
                         <span className="text-slate-600 ml-auto">{new Date(t.timestamp).toLocaleTimeString()}</span>
                       </div>
                     ))}
@@ -942,56 +1317,79 @@ export function StoreContent({ store }: StoreContentProps) {
 
       {/* Modals */}
       {activeModal === 'shopify' && (
-        <ShopifyConnectModal 
-          storeId={store.id} 
+        <ShopifyConnectModal
+          storeId={store.id}
           mode={modalMode}
           existingCredentials={editingCredentials}
-          onClose={handleModalClose} 
-          onConnected={loadIntegrations} 
+          onClose={handleModalClose}
+          onConnected={loadIntegrations}
         />
       )}
       {activeModal === 'meta' && (
-        <MetaAdsConnectModal 
-          storeId={store.id} 
+        <MetaAdsConnectModal
+          storeId={store.id}
           mode={modalMode}
           existingCredentials={editingCredentials}
-          onClose={handleModalClose} 
-          onConnected={loadIntegrations} 
+          onClose={handleModalClose}
+          onConnected={loadIntegrations}
         />
       )}
       {activeModal === 'cj' && (
-        <CJDropshippingConnectModal 
-          storeId={store.id} 
+        <CJDropshippingConnectModal
+          storeId={store.id}
           mode={modalMode}
           existingCredentials={editingCredentials}
-          onClose={handleModalClose} 
-          onConnected={loadIntegrations} 
+          onClose={handleModalClose}
+          onConnected={loadIntegrations}
         />
       )}
       {activeModal === 'ai' && (
-        <AIProviderModal 
+        <AIProviderModal
           mode={modalMode}
           existingCredentials={editingCredentials}
-          onClose={handleModalClose} 
-          onConfigured={loadIntegrations} 
+          onClose={handleModalClose}
+          onConfigured={loadIntegrations}
         />
       )}
       {activeModal === 'github' && (
-        <GitHubConnectModal 
+        <GitHubConnectModal
           mode={modalMode}
           existingCredentials={editingCredentials}
-          onClose={handleModalClose} 
-          onConnected={loadIntegrations} 
+          onClose={handleModalClose}
+          onConnected={loadIntegrations}
         />
       )}
       {activeModal === 'vercel' && (
-        <VercelConnectModal 
+        <VercelConnectModal
           mode={modalMode}
           existingCredentials={editingCredentials}
           onClose={handleModalClose} 
           onConnected={loadIntegrations} 
         />
       )}
+      
+      {/* API Key Prompt Modal */}
+      <APIKeyPromptModal
+        isOpen={apiKeyPrompt.isOpen}
+        integrationType={apiKeyPrompt.integrationType}
+        onClose={() => setApiKeyPrompt({ isOpen: false, integrationType: '' })}
+        onConfigure={() => {
+          setApiKeyPrompt({ isOpen: false, integrationType: '' })
+          // Map integration type to modal
+          const modalMap: Record<string, string> = {
+            'ai': 'ai',
+            'shopify': 'shopify',
+            'meta_ads': 'meta',
+            'cj_dropshipping': 'cj',
+            'github': 'github',
+            'vercel': 'vercel'
+          }
+          const modalType = modalMap[apiKeyPrompt.integrationType]
+          if (modalType) {
+            setActiveModal(modalType)
+          }
+        }}
+      />
     </div>
   )
 }
