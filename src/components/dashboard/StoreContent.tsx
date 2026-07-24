@@ -108,55 +108,65 @@ export function StoreContent({ store }: StoreContentProps) {
   useEffect(() => {
     if (!worker?.id) return
     
-    // Get JWT token from localStorage or cookie
-    const token = localStorage.getItem('token') || localStorage.getItem('auth_token') || ''
+    let ws: WebSocket | null = null
     
-    // Use backend proxy for secure WebSocket connection with token
-    const wsUrl = `${process.env.NEXT_PUBLIC_API_URL?.replace('https://', 'wss://').replace('http://', 'ws://')}/ws/worker/${worker.id}?token=${encodeURIComponent(token)}`
-    console.log('[WebSocket] Connecting via backend proxy:', wsUrl.replace(token, '[REDACTED]'))
-    
-    const ws = new WebSocket(wsUrl)
-    wsRef.current = ws
-    
-    ws.onopen = () => {
-      console.log('[WebSocket] Connected to OpenClaw Gateway')
-      setWsConnected(true)
-      addTaskActivity('system', 'system', 'Connected to OpenClaw AI Agent')
-    }
-    
-    ws.onmessage = (event) => {
-      const msg = JSON.parse(event.data)
-      console.log('[WebSocket] Message:', msg)
-      
-      if (msg.type === 'chat_response') {
-        setChatMessages(prev => [...prev, {
-          id: Date.now().toString(),
-          role: 'assistant',
-          content: msg.content,
-          timestamp: new Date()
-        }])
-        setIsTyping(false)
-      } else if (msg.type === 'task_complete') {
-        addTaskActivity(msg.task || 'system', 'result', `Task completed: ${JSON.stringify(msg.result)}`)
-      } else if (msg.type === 'system') {
-        addTaskActivity('system', 'system', msg.message)
+    const connectWebSocket = async () => {
+      try {
+        const supabase = getSupabaseClient()
+        const { data: { session } } = await supabase.auth.getSession()
+        const token = session?.access_token
+        
+        if (!token) {
+          console.error('[WebSocket] No auth token available')
+          return
+        }
+        
+        const wsUrl = `${process.env.NEXT_PUBLIC_API_URL?.replace('https://', 'wss://').replace('http://', 'ws://')}/ws/worker/${worker.id}?token=${encodeURIComponent(token)}`
+        console.log('[WebSocket] Connecting...')
+        
+        ws = new WebSocket(wsUrl)
+        wsRef.current = ws
+        
+        ws.onopen = () => {
+          console.log('[WebSocket] Connected')
+          setWsConnected(true)
+        }
+        
+        ws.onmessage = (event) => {
+          const msg = JSON.parse(event.data)
+          console.log('[WebSocket] Message:', msg.type)
+          
+          if (msg.type === 'chat_response') {
+            setChatMessages(prev => [...prev, {
+              id: Date.now().toString(),
+              role: 'assistant',
+              content: msg.content,
+              timestamp: new Date()
+            }])
+            setIsTyping(false)
+          }
+        }
+        
+        ws.onerror = (error) => {
+          console.error('[WebSocket] Error:', error)
+          setWsConnected(false)
+        }
+        
+        ws.onclose = (event) => {
+          console.log('[WebSocket] Closed:', event.code)
+          setWsConnected(false)
+        }
+      } catch (error) {
+        console.error('[WebSocket] Setup error:', error)
       }
     }
     
-    ws.onclose = () => {
-      console.log('[WebSocket] Disconnected')
-      setWsConnected(false)
-    }
-    
-    ws.onerror = (error) => {
-      console.error('[WebSocket] Error:', error)
-      setWsConnected(false)
-    }
+    connectWebSocket()
     
     return () => {
-      ws.close()
+      ws?.close()
     }
-  }, [worker?.ip])
+  }, [worker?.id])
   
   // Add activity to a specific task
   const addTaskActivity = (taskName: string, type: TaskActivity['type'], message: string, details?: any) => {
