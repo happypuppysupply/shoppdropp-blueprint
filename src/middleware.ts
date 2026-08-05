@@ -3,6 +3,11 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export async function middleware(req: NextRequest) {
+  // Skip middleware on auth callback to preserve PKCE verifier cookie
+  if (req.nextUrl.pathname === '/auth/callback') {
+    return NextResponse.next()
+  }
+
   let res = NextResponse.next()
   
   const supabase = createServerClient(
@@ -43,5 +48,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/app/:path*', '/auth', '/login'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
 }
