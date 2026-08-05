@@ -765,7 +765,8 @@ export function StoreContent({ store }: StoreContentProps) {
     }
     
     // Redirect to provision progress page
-    router.push(`/app/provision?workerId=${worker.id}`)
+    try {
+      router.push(`/app/provision?workerId=${worker.id}`)
     } catch (error: any) {
       console.error('[VPS] Failed to reprovision:', error)
       setTaskResults(prev => [{ task: 'vps_reprovision', status: 'failed', message: error.message || 'Reprovisioning failed', timestamp: new Date().toISOString() }, ...prev])
