@@ -1,0 +1,44 @@
+// Poll worker data when on AI Agent page
+  useEffect(() => {
+    if (selectedPage !== 'ai-agent') return
+
+    let cancelled = false
+
+    async function fetchWorkerData() { console.log("[Worker] Fetching for store:", store.id)
+      try {
+        setWorkerLoading(true)
+        
+        // Get workers from backend API
+        const workers = await api.workers.list()
+        console.log('[Worker] API returned', workers?.length || 0, 'workers:', workers)
+        
+        // Find worker for this store
+        const storeWorker = workers.find((w: any) => w.store_id === store.id)
+        console.log('[Worker] Match for store_id', store.id, ':', storeWorker)
+        
+        if (!cancelled && storeWorker) {
+          setWorker({
+            id: storeWorker.id,
+            status: storeWorker.status,
+            ip: storeWorker.ip_address,
+            server_id: storeWorker.hetzner_server_id,
+          })
+        } else {
+          console.log('[Worker] No worker found for this store')
+          setWorker(null)
+        }
+      } catch (err) {
+        console.error('Failed to fetch worker data:', err)
+      } finally {
+        if (!cancelled) setWorkerLoading(false)
+      }
+    }
+
+    fetchWorkerData()
+    const interval = setInterval(fetchWorkerData, 10000)
+
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
+  }, [selectedPage, store.id])

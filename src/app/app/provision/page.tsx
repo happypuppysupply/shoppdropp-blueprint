@@ -101,6 +101,7 @@ export default function ProvisionPage() {
       setCurrentStep(4)
 
       // Step 5-8: Poll for worker status
+      if (!workerId) throw new Error('Worker ID is required')
       await pollWorkerStatus(workerId, session.access_token)
 
     } catch (err: any) {
