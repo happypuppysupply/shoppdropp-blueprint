@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
-import { Bot, Send, Sparkles, Server, Store, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react'
+import { Bot, Send, Sparkles, Server, Store, AlertCircle, CheckCircle2, Loader2, Wallet, TrendingUp } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
 interface Message {
@@ -29,6 +29,17 @@ interface ContextData {
   ai_configured: boolean
 }
 
+interface BudgetData {
+  configured: boolean
+  weeklyLimit: number
+  weeklySpent: number
+  percentageUsed: number
+  remaining: number
+  daysUntilReset: number
+  accountBalance?: number
+  isBlocked: boolean
+}
+
 export default function AIAgentPage() {
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<Message[]>([
@@ -40,6 +51,8 @@ export default function AIAgentPage() {
   const [loading, setLoading] = useState(false)
   const [context, setContext] = useState<ContextData | null>(null)
   const [loadingContext, setLoadingContext] = useState(true)
+  const [budget, setBudget] = useState<BudgetData | null>(null)
+  const [loadingBudget, setLoadingBudget] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://shoppdropp-api.onrender.com'
 
@@ -55,6 +68,7 @@ export default function AIAgentPage() {
   // Load context on mount
   useEffect(() => {
     loadContext()
+    loadBudget()
   }, [])
 
   async function loadContext() {
@@ -79,6 +93,31 @@ export default function AIAgentPage() {
       console.error('Failed to load context:', error)
     } finally {
       setLoadingContext(false)
+    }
+  }
+
+  async function loadBudget() {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        setLoadingBudget(false)
+        return
+      }
+
+      const response = await fetch(`${API_URL}/api/budget/status`, {
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setBudget(data)
+      }
+    } catch (error) {
+      console.error('Failed to load budget:', error)
+    } finally {
+      setLoadingBudget(false)
     }
   }
 
@@ -123,15 +162,34 @@ export default function AIAgentPage() {
 
       if (!response.ok) {
         const error = await response.json()
+        // Handle budget errors specially
+        if (error.budget_error) {
+          throw new Error(
+            `💰 Budget Limit Reached\n\n` +
+            `${error.reason}\n` +
+            `Remaining: $${error.remaining?.toFixed?.(2) || '0.00'}\n` +
+            `Resets: ${error.resets_at ? new Date(error.resets_at).toLocaleDateString() : 'N/A'}\n\n` +
+            `${error.suggestion || 'Consider increasing your weekly limit in settings.'}`
+          )
+        }
         throw new Error(error.error || 'Failed to get response')
       }
 
       const data = await response.json()
       
+      // Refresh budget after request
+      loadBudget()
+      
+      // Build response content with budget alert if present
+      let responseContent = data.response
+      if (data.budget_alert) {
+        responseContent = data.budget_alert + '\n\n---\n\n' + responseContent
+      }
+      
       // Add AI response
       const assistantMessage: Message = {
         role: 'assistant',
-        content: data.response,
+        content: responseContent,
       }
 
       // Add command result if present
@@ -209,6 +267,77 @@ export default function AIAgentPage() {
           </div>
         )}
       </div>
+
+      {/* Budget Status Card */}
+      {!loadingBudget && budget?.configured && (
+        <Card className={`border-white/10 ${
+          budget.isBlocked 
+            ? 'bg-red-950/30 border-red-500/30' 
+            : budget.percentageUsed >= 90 
+              ? 'bg-yellow-950/30 border-yellow-500/30'
+              : 'bg-[#111118]'
+        }`}>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Wallet className={`w-4 h-4 ${
+                budget.isBlocked ? 'text-red-400' : 
+                budget.percentageUsed >= 90 ? 'text-yellow-400' : 'text-green-400'
+              }`} />
+              <span className={
+                budget.isBlocked ? 'text-red-400' : 
+                budget.percentageUsed >= 90 ? 'text-yellow-400' : 'text-slate-400'
+              }>
+                OpenRouter Budget
+              </span>
+              {budget.isBlocked && (
+                <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-xs">
+                  BLOCKED
+                </Badge>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {/* Progress bar */}
+              <div className="space-y-1">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-400">
+                    ${budget.weeklySpent.toFixed(2)} / ${budget.weeklyLimit.toFixed(2)}
+                  </span>
+                  <span className={`font-medium ${
+                    budget.percentageUsed >= 95 ? 'text-red-400' :
+                    budget.percentageUsed >= 75 ? 'text-yellow-400' : 'text-green-400'
+                  }`}>
+                    {budget.percentageUsed}%
+                  </span>
+                </div>
+                <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full rounded-full transition-all ${
+                      budget.percentageUsed >= 95 ? 'bg-red-500' :
+                      budget.percentageUsed >= 75 ? 'bg-yellow-500' : 'bg-green-500'
+                    }`}
+                    style={{ width: `${Math.min(budget.percentageUsed, 100)}%` }}
+                  />
+                </div>
+              </div>
+              
+              {/* Details */}
+              <div className="flex justify-between text-xs text-slate-500">
+                <span>Remaining: ${budget.remaining.toFixed(2)}</span>
+                <span>Resets in {budget.daysUntilReset} days</span>
+              </div>
+              
+              {budget.accountBalance !== undefined && (
+                <div className="flex items-center gap-2 text-xs text-slate-400 pt-2 border-t border-white/10">
+                  <TrendingUp className="w-3 h-3" />
+                  <span>Account Balance: ${budget.accountBalance.toFixed(2)}</span>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Worker/Store info cards */}
       {!loadingContext && context && (
