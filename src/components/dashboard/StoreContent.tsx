@@ -176,9 +176,7 @@ export function StoreContent({ store }: StoreContentProps) {
   // Per-task activities - each task has its own activity log
   const [taskActivities, setTaskActivities] = useState<Record<string, TaskActivity[]>>({})
   const [wsConnected, setWsConnected] = useState(false)
-  const wsRef = useRef<WebSocket | null>(null)
-  const aiChatWsRef = useRef<WebSocket | null>(null)
-  const [isAiChatWsConnected, setIsAiChatWsConnected] = useState(false)
+  const workerWsRef = useRef<WebSocket | null>(null)
   const router = useRouter()
   
   // Connect to OpenClaw Gateway via WebSocket (proxied through backend)
@@ -202,7 +200,7 @@ export function StoreContent({ store }: StoreContentProps) {
         console.log('[WebSocket] Connecting...')
         
         ws = new WebSocket(wsUrl)
-        wsRef.current = ws
+        workerWsRef.current = ws
         
         ws.onopen = () => {
           console.log('[WebSocket] Connected')
