@@ -958,9 +958,9 @@ export function StoreContent({ store }: StoreContentProps) {
       case 'ai-agent':
         return (
           <div className="h-full flex gap-6">
-            {/* Main Content - Tasks & Worker Status */}
-            <div className="flex-1 space-y-6 overflow-y-auto">
-              <div className="flex items-center justify-between">
+            {/* Chat Box - Large Left */}
+            <div className="flex-1 flex flex-col">
+              <div className="flex items-center justify-between mb-6">
                 <h1 className="text-2xl font-bold text-white">AI Agent</h1>
                 <div className="flex items-center gap-2">
                   {workerLoading ? (
@@ -973,215 +973,6 @@ export function StoreContent({ store }: StoreContentProps) {
                   </span>
                 </div>
               </div>
-
-              {/* Worker Status Card */}
-              <div className="p-6 rounded-xl bg-gradient-to-r from-violet-500/10 to-pink-500/10 border border-violet-500/30">
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-xl bg-violet-500/20 flex items-center justify-center">
-                    <svg className="w-8 h-8 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-white">
-                      {workerLoading ? (
-                        <span className="flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading worker...</span>
-                      ) : worker ? (
-                        `VPS Worker #${worker.id}`
-                      ) : (
-                        'No Worker Connected'
-                      )}
-                    </h3>
-                    <p className="text-sm text-slate-400">
-                      {worker?.server_id ? `Server: ${worker.server_id}` : 'Hetzner Cloud • CX21 Instance'}
-                    </p>
-                    <div className="flex items-center gap-4 mt-2 text-xs text-slate-500">
-                      <span>IP: {worker?.ip || '-'}</span>
-                      <span>•</span>
-                      <span>Uptime: {worker?.uptime || '-'}</span>
-                      {worker?.cpu_percent !== undefined && (
-                        <>
-                          <span>•</span>
-                          <span>CPU: {worker.cpu_percent}%</span>
-                        </>
-                      )}
-                      {worker?.memory_percent !== undefined && (
-                        <>
-                          <span>•</span>
-                          <span>RAM: {worker.memory_percent}%</span>
-                        </>
-                      )}
-                      <span>•</span>
-                      <span className={wsConnected ? 'text-green-400' : 'text-amber-400'}>
-                        {wsConnected ? '● OpenClaw Connected' : '○ OpenClaw Disconnected'}
-                      </span>
-                    </div>
-                    {worker?.current_task && (
-                      <div className="mt-2 text-xs text-amber-400">
-                        Current task: {worker.current_task}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    {worker ? (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="border-white/20 text-white"
-                          onClick={handleRestartWorker}
-                          disabled={isTaskQueuedOrRunning('restart_worker')}
-                        >
-                          {isTaskQueuedOrRunning('restart_worker') ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Restart'}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="border-red-500/50 text-red-400"
-                          onClick={handleStopWorker}
-                          disabled={isTaskQueuedOrRunning('stop_worker')}
-                        >
-                          {isTaskQueuedOrRunning('stop_worker') ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Stop'}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="border-amber-500/50 text-amber-400"
-                          onClick={handleReprovisionVPS}
-                          disabled={isReprovisioning}
-                        >
-                          {isReprovisioning ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Reprovision'}
-                        </Button>
-                      </>
-                    ) : (
-                      <Button
-                        size="sm"
-                        className="bg-gradient-to-r from-violet-600 to-pink-600"
-                        onClick={handleProvisionVPS}
-                        disabled={isProvisioning}
-                      >
-                        {isProvisioning ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Play className="w-4 h-4 mr-2" />}
-                        {isProvisioning ? 'Provisioning...' : 'Setup Worker'}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* AI Workflow Pipeline */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold text-white">AI Workflow</h2>
-                  <Button
-                    size="sm"
-                    className="bg-gradient-to-r from-violet-600 to-pink-600"
-                    onClick={handleRunFullWorkflow}
-                    disabled={!worker || taskQueue.length > 0}
-                  >
-                    {currentTask ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Play className="w-4 h-4 mr-2" />}
-                    Run Full Workflow
-                  </Button>
-                </div>
-                
-                {/* Queue Status */}
-                {(taskQueue.length > 0 || currentTask) && (
-                  <div className="p-3 rounded-lg bg-violet-500/10 border border-violet-500/20">
-                    <div className="flex items-center gap-2 text-sm text-violet-300">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>
-                        {currentTask ? `Running: ${currentTask.replace(/_/g, ' ')}` : 'Processing...'}
-                        {taskQueue.length > 0 && ` (${taskQueue.length} in queue)`}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {!worker && (
-                  <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                    <p className="text-sm text-amber-400">Setup a VPS Worker first to run the AI workflow</p>
-                  </div>
-                )}
-
-                <div className="space-y-4">
-                  {[
-                    { id: 'product_research', title: 'Product Research', desc: 'AI analyzes trending products and market demand', status: taskResults.find(t => t.task === 'product_research')?.status || 'waiting', icon: Search, color: 'blue' },
-                    { id: 'catalog_sync', title: 'Catalog Sync', desc: 'Sync products from suppliers to Shopify', status: taskResults.find(t => t.task === 'catalog_sync')?.status || 'waiting', icon: Package, color: 'green' },
-                    { id: 'price_optimization', title: 'Price Optimization', desc: 'AI-powered pricing adjustments', status: taskResults.find(t => t.task === 'price_optimization')?.status || 'waiting', icon: Target, color: 'orange' },
-                    { id: 'performance_report', title: 'Performance Report', desc: 'Track ROAS and performance metrics', status: taskResults.find(t => t.task === 'performance_report')?.status || 'waiting', icon: BarChart3, color: 'pink' },
-                  ].map((step) => (
-                    <div key={step.id}>
-                      <WorkflowTaskCard
-                        id={step.id}
-                        title={step.title}
-                        description={step.desc}
-                        status={step.status as any}
-                        icon={<step.icon className={`w-4 h-4 text-${step.color}-400`} />}
-                        color={step.color}
-                        onRun={() => runTask(step.id)}
-                        disabled={!worker || isTaskQueuedOrRunning(step.id)}
-                        queuePosition={getQueuePosition(step.id)}
-                        lastResult={taskResults.find(t => t.task === step.id)?.message}
-                      />
-                      {/* Per-Task Worker Console */}
-                      <TaskWorkerPanel
-                        taskId={step.id}
-                        taskName={step.title}
-                        status={step.status as any}
-                        activities={taskActivities[step.id] || []}
-                        isActive={currentTask === step.id}
-                        onStop={() => stopTask(step.id)}
-                        onSendMessage={(msg) => sendTaskMessage(step.id, msg)}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-              
-              {/* Product Research Results - Show when research is complete */}
-              {researchResults.length > 0 && (
-                <ProductResearchResults 
-                  results={researchResults}
-                  onImport={(product) => {
-                    console.log('Importing product:', product.title)
-                    // TODO: Implement actual import via CJ Dropshipping
-                  }}
-                />
-              )}
-              
-              {/* Task Results Summary */}
-              <div className="p-4 rounded-lg bg-black/20 border border-white/5">
-                <h4 className="font-medium text-white mb-3">Task Results</h4>
-                {taskResults.length === 0 ? (
-                  <p className="text-sm text-slate-500">No recent tasks. Run a task above to see activity.</p>
-                ) : (
-                  <div className="space-y-2 text-sm">
-                    {taskResults.slice(0, 10).map((t, i) => (
-                      <div key={i} className="flex items-center gap-3 text-slate-400">
-                        <div className={`w-2 h-2 rounded-full ${
-                          t.status === 'completed' ? 'bg-green-500' :
-                          t.status === 'running' ? 'bg-blue-500' :
-                          t.status === 'failed' ? 'bg-red-500' :
-                          'bg-violet-500'
-                        }`} />
-                        <span className="capitalize">{t.task.replace(/_/g, ' ')}</span>
-                        <span className={`text-xs ${
-                          t.status === 'completed' ? 'text-green-400' :
-                          t.status === 'failed' ? 'text-red-400' :
-                          'text-slate-500'
-                        }`}>
-                          {t.status}
-                        </span>
-                        {t.message && <span className="text-slate-600">- {t.message}</span>}
-                        <span className="text-slate-600 ml-auto">{new Date(t.timestamp).toLocaleTimeString()}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Chat Box - Far Right */}
-            <div className="w-80 border-l border-white/10 flex flex-col bg-black/20">
               <div className="p-4 border-b border-white/10 flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center">
                   <Bot className="w-4 h-4 text-violet-400" />
@@ -1193,7 +984,7 @@ export function StoreContent({ store }: StoreContentProps) {
               </div>
 
               {/* Chat Messages */}
-              <div className="flex-1 overflow-y-auto p-4 space-y-4">
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-black/20 rounded-lg">
                 {chatMessages.map((message) => (
                   <div key={message.id} className={`flex gap-2 ${message.role === 'user' ? 'flex-row-reverse' : ''}`}>
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
@@ -1227,7 +1018,7 @@ export function StoreContent({ store }: StoreContentProps) {
 
               {/* Chat Input */}
               <div className="p-4 border-t border-white/10">
-                <div className="flex gap-2">
+                <div className="flex gap-2 max-w-3xl mx-auto">
                   <input
                     type="text"
                     value={chatInput}
@@ -1245,6 +1036,184 @@ export function StoreContent({ store }: StoreContentProps) {
                     <Send className="w-4 h-4" />
                   </Button>
                 </div>
+              </div>
+            </div>
+
+            {/* Worker Status & Workflow - Small Right */}
+            <div className="w-80 space-y-6 overflow-y-auto border-l border-white/10 pl-6">
+              {/* Worker Status Card */}
+              <div className="p-4 rounded-xl bg-gradient-to-r from-violet-500/10 to-pink-500/10 border border-violet-500/30">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-lg bg-violet-500/20 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-violet-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-white text-sm">
+                      {workerLoading ? (
+                        <span className="flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Loading...</span>
+                      ) : worker ? (
+                        `Worker #${worker.id}`
+                      ) : (
+                        'No Worker'
+                      )}
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      {worker?.server_id ? worker.server_id : 'Hetzner CX21'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 mb-3">
+                  <span>IP: {worker?.ip || '-'}</span>
+                  <span>Uptime: {worker?.uptime || '-'}</span>
+                  {worker?.cpu_percent !== undefined && (
+                    <span>CPU: {worker.cpu_percent}%</span>
+                  )}
+                  {worker?.memory_percent !== undefined && (
+                    <span>RAM: {worker.memory_percent}%</span>
+                  )}
+                  <span className={wsConnected ? 'text-green-400' : 'text-amber-400'}>
+                    {wsConnected ? '● OpenClaw' : '○ Disconnected'}
+                  </span>
+                </div>
+                {worker?.current_task && (
+                  <div className="mb-3 text-xs text-amber-400">
+                    Task: {worker.current_task}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  {worker ? (
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-white/20 text-white text-xs px-2"
+                        onClick={handleRestartWorker}
+                        disabled={isTaskQueuedOrRunning('restart_worker')}
+                      >
+                        {isTaskQueuedOrRunning('restart_worker') ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Restart'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="border-red-500/50 text-red-400 text-xs px-2"
+                        onClick={handleStopWorker}
+                        disabled={isTaskQueuedOrRunning('stop_worker')}
+                      >
+                        {isTaskQueuedOrRunning('stop_worker') ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Stop'}
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      size="sm"
+                      className="bg-gradient-to-r from-violet-600 to-pink-600 text-xs"
+                      onClick={handleProvisionVPS}
+                      disabled={isProvisioning}
+                    >
+                      {isProvisioning ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Play className="w-3 h-3 mr-1" />}
+                      {isProvisioning ? 'Provisioning...' : 'Setup'}
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* AI Workflow Pipeline */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-lg font-bold text-white">AI Workflow</h2>
+                  <Button
+                    size="sm"
+                    className="bg-gradient-to-r from-violet-600 to-pink-600 text-xs px-2"
+                    onClick={handleRunFullWorkflow}
+                    disabled={!worker || taskQueue.length > 0}
+                  >
+                    {currentTask ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Play className="w-3 h-3 mr-1" />}
+                    Run All
+                  </Button>
+                </div>
+                
+                {/* Queue Status */}
+                {(taskQueue.length > 0 || currentTask) && (
+                  <div className="p-2 rounded-lg bg-violet-500/10 border border-violet-500/20">
+                    <div className="flex items-center gap-2 text-xs text-violet-300">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <span>
+                        {currentTask ? currentTask.replace(/_/g, ' ') : 'Processing...'}
+                        {taskQueue.length > 0 && ` (${taskQueue.length})`}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {!worker && (
+                  <div className="p-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                    <p className="text-xs text-amber-400">Setup worker first</p>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  {[
+                    { id: 'product_research', title: 'Research', desc: 'AI analyzes trending products', status: taskResults.find(t => t.task === 'product_research')?.status || 'waiting', icon: Search, color: 'blue' },
+                    { id: 'catalog_sync', title: 'Catalog', desc: 'Sync products to Shopify', status: taskResults.find(t => t.task === 'catalog_sync')?.status || 'waiting', icon: Package, color: 'green' },
+                    { id: 'price_optimization', title: 'Pricing', desc: 'AI-powered pricing', status: taskResults.find(t => t.task === 'price_optimization')?.status || 'waiting', icon: Target, color: 'orange' },
+                    { id: 'performance_report', title: 'Report', desc: 'Track ROAS metrics', status: taskResults.find(t => t.task === 'performance_report')?.status || 'waiting', icon: BarChart3, color: 'pink' },
+                  ].map((step) => (
+                    <div key={step.id}>
+                      <WorkflowTaskCard
+                        id={step.id}
+                        title={step.title}
+                        description={step.desc}
+                        status={step.status as any}
+                        icon={<step.icon className={`w-4 h-4 text-${step.color}-400`} />}
+                        color={step.color}
+                        onRun={() => runTask(step.id)}
+                        disabled={!worker || isTaskQueuedOrRunning(step.id)}
+                        queuePosition={getQueuePosition(step.id)}
+                        lastResult={taskResults.find(t => t.task === step.id)?.message}
+                      />
+                      {/* Per-Task Worker Console */}
+                      <TaskWorkerPanel
+                        taskId={step.id}
+                        taskName={step.title}
+                        status={step.status as any}
+                        activities={taskActivities[step.id] || []}
+                        isActive={currentTask === step.id}
+                        onStop={() => stopTask(step.id)}
+                        onSendMessage={(msg) => sendTaskMessage(step.id, msg)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              
+              {/* Task Results Summary */}
+              <div className="p-3 rounded-lg bg-black/20 border border-white/5">
+                <h4 className="font-medium text-white mb-2 text-sm">Results</h4>
+                {taskResults.length === 0 ? (
+                  <p className="text-xs text-slate-500">No recent tasks.</p>
+                ) : (
+                  <div className="space-y-1 text-xs">
+                    {taskResults.slice(0, 5).map((t, i) => (
+                      <div key={i} className="flex items-center gap-2 text-slate-400">
+                        <div className={`w-1.5 h-1.5 rounded-full ${
+                          t.status === 'completed' ? 'bg-green-500' :
+                          t.status === 'running' ? 'bg-blue-500' :
+                          t.status === 'failed' ? 'bg-red-500' :
+                          'bg-violet-500'
+                        }`} />
+                        <span className="capitalize truncate flex-1">{t.task.replace(/_/g, ' ')}</span>
+                        <span className={`${
+                          t.status === 'completed' ? 'text-green-400' :
+                          t.status === 'failed' ? 'text-red-400' :
+                          'text-slate-500'
+                        }`}>
+                          {t.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
