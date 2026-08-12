@@ -1182,6 +1182,15 @@ export function StoreContent({ store }: StoreContentProps) {
                       <Button
                         variant="outline"
                         size="sm"
+                        className="border-amber-500/50 text-amber-400 text-xs px-2"
+                        onClick={handleReprovisionVPS}
+                        disabled={isReprovisioning}
+                      >
+                        {isReprovisioning ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Reprovision'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
                         className="border-red-500/50 text-red-400 text-xs px-2"
                         onClick={handleStopWorker}
                         disabled={isTaskQueuedOrRunning('stop_worker')}
