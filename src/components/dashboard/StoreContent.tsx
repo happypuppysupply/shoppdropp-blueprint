@@ -14,6 +14,7 @@ import { APIKeyPromptModal } from './APIKeyPromptModal'
 import { ProductResearchResults } from './ProductResearchResults'
 import { WorkflowTaskCard } from './WorkflowTaskCard'
 import { TaskWorkerPanel, TaskActivity } from './TaskWorkerPanel'
+import { InlineProvision } from './InlineProvision'
 import { useState, useEffect, useRef } from 'react'
 import { getSupabaseClient } from '@/lib/supabase-client'
 import { api } from '@/lib/api'
@@ -170,6 +171,8 @@ export function StoreContent({ store }: StoreContentProps) {
   const [workerLoading, setWorkerLoading] = useState(false)
   const [isProvisioning, setIsProvisioning] = useState(false)
   const [isReprovisioning, setIsReprovisioning] = useState(false)
+  const [showInlineProvision, setShowInlineProvision] = useState(false)
+  const [provisionWorkerId, setProvisionWorkerId] = useState<string | null>(null)
   const [taskResults, setTaskResults] = useState<TaskResult[]>([])
   const [taskQueue, setTaskQueue] = useState<Array<{task: string; payload?: Record<string, unknown>; id: string}>>([])
   const [currentTask, setCurrentTask] = useState<string | null>(null)
@@ -828,8 +831,9 @@ export function StoreContent({ store }: StoreContentProps) {
 
       setTaskResults(prev => [{ task: 'vps_provision', status: 'completed', message: `VPS Worker created: ${response.workerId || 'New Worker'}`, timestamp: new Date().toISOString() }, ...prev])
 
-      // Navigate to provision progress page to watch the build
-      router.push(`/app/provision?workerId=${response.workerId}`)
+      // Show inline provision UI instead of navigating
+      setProvisionWorkerId(response.workerId)
+      setShowInlineProvision(true)
     } catch (error: any) {
       console.error('[VPS] Failed to provision:', error)
       setTaskResults(prev => [{ task: 'vps_provision', status: 'failed', message: error.message || 'Provisioning failed', timestamp: new Date().toISOString() }, ...prev])
@@ -871,8 +875,9 @@ export function StoreContent({ store }: StoreContentProps) {
       
       setTaskResults(prev => [{ task: 'vps_reprovision', status: 'completed', message: 'Reprovision started', timestamp: new Date().toISOString() }, ...prev])
       
-      // Navigate to provision progress page to watch the build
-      router.push(`/app/provision?workerId=${worker.id}`)
+      // Show inline provision UI instead of navigating
+      setProvisionWorkerId(worker.id)
+      setShowInlineProvision(true)
     } catch (error: any) {
       console.error('[VPS] Failed to reprovision:', error)
       setTaskResults(prev => [{ task: 'vps_reprovision', status: 'failed', message: error.message || 'Reprovisioning failed', timestamp: new Date().toISOString() }, ...prev])
@@ -1232,6 +1237,22 @@ export function StoreContent({ store }: StoreContentProps) {
                   )}
                 </div>
               </div>
+
+              {/* Inline Provisioning UI */}
+              {showInlineProvision && provisionWorkerId && (
+                <InlineProvision
+                  workerId={provisionWorkerId}
+                  onComplete={(ip) => {
+                    setShowInlineProvision(false)
+                    // Refresh the page to get updated worker data
+                    window.location.reload()
+                  }}
+                  onError={(error) => {
+                    console.error('Provisioning error:', error)
+                    // Keep showing the provision UI with error
+                  }}
+                />
+              )}
 
               {/* AI Workflow Pipeline */}
               <div className="space-y-3">
