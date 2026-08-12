@@ -87,6 +87,81 @@ export function StoreContent({ store }: StoreContentProps) {
   ])
   const [isTyping, setIsTyping] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
+  const wsRef = useRef<WebSocket | null>(null)
+  const [isWsConnected, setIsWsConnected] = useState(false)
+
+  // WebSocket connection for AI chat
+  useEffect(() => {
+    if (selectedPage !== 'ai-agent') return
+    
+    let ws: WebSocket | null = null
+    
+    const connectWebSocket = async () => {
+      try {
+        const supabase = getSupabaseClient()
+        const { data: { session } } = await supabase.auth.getSession()
+        
+        if (!session?.access_token) return
+        
+        const wsUrl = `${process.env.NEXT_PUBLIC_API_URL?.replace('https', 'wss').replace('http', 'ws')}/ws/ai-chat?token=${session.access_token}`
+        
+        ws = new WebSocket(wsUrl)
+        wsRef.current = ws
+        
+        ws.onopen = () => {
+          console.log('[AI-Chat-WS] Connected')
+          setIsWsConnected(true)
+        }
+        
+        ws.onmessage = (event) => {
+          const data = JSON.parse(event.data)
+          
+          if (data.type === 'chunk') {
+            // Streaming chunk - append to last assistant message
+            setChatMessages(prev => {
+              const last = prev[prev.length - 1]
+              if (last.role === 'assistant') {
+                return [
+                  ...prev.slice(0, -1),
+                  { ...last, content: last.content + data.content }
+                ]
+              }
+              return prev
+            })
+          } else if (data.type === 'complete') {
+            setIsTyping(false)
+          } else if (data.type === 'error') {
+            setIsTyping(false)
+            setChatMessages(prev => [...prev, {
+              id: Date.now().toString(),
+              role: 'assistant',
+              content: `Error: ${data.error}`,
+              timestamp: new Date()
+            }])
+          }
+        }
+        
+        ws.onclose = () => {
+          console.log('[AI-Chat-WS] Disconnected')
+          setIsWsConnected(false)
+        }
+        
+        ws.onerror = (error) => {
+          console.error('[AI-Chat-WS] Error:', error)
+          setIsWsConnected(false)
+        }
+      } catch (error) {
+        console.error('[AI-Chat-WS] Failed to connect:', error)
+      }
+    }
+    
+    connectWebSocket()
+    
+    return () => {
+      ws?.close()
+      wsRef.current = null
+    }
+  }, [selectedPage])
 
   // AI Agent - Worker state
   const [worker, setWorker] = useState<WorkerData | null>(null)
@@ -555,15 +630,23 @@ export function StoreContent({ store }: StoreContentProps) {
     setChatInput('')
     setIsTyping(true)
 
-    // If connected to OpenClaw Gateway via WebSocket, use that
+    // Send via WebSocket if connected
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      console.log('[WebSocket] Sending message to OpenClaw Gateway')
+      console.log('[AI-Chat-WS] Sending message')
+      
+      // Add empty assistant message for streaming
+      setChatMessages(prev => [...prev, {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: '',
+        timestamp: new Date()
+      }])
+      
       wsRef.current.send(JSON.stringify({
         type: 'chat',
         content: chatInput,
-        history: chatMessages.map(m => ({ role: m.role, content: m.content }))
+        conversation_history: chatMessages.map(m => ({ role: m.role, content: m.content }))
       }))
-      // Response will come via onmessage handler
       return
     }
 
