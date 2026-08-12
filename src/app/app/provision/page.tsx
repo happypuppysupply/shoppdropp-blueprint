@@ -126,6 +126,47 @@ export default function ProvisionPage() {
 
     while (attempts < maxAttempts) {
       try {
+        // Check provision status for detailed steps
+        const provisionResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/provision/status/${workerId}?_t=${Date.now()}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+
+        if (provisionResponse.ok) {
+          const provisionData = await provisionResponse.json()
+          
+          // Update steps based on provision logs
+          if (provisionData.steps && provisionData.steps.length > 0) {
+            provisionData.steps.forEach((step: any) => {
+              const stepName = step.name?.toLowerCase() || ''
+              if (stepName.includes('ssh')) {
+                updateStep('ssh', step.progress >= 100 ? 'completed' : 'running', step.message)
+              } else if (stepName.includes('install') || stepName.includes('openclaw')) {
+                updateStep('install', step.progress >= 100 ? 'completed' : 'running', step.message)
+              } else if (stepName.includes('verify') || stepName.includes('health')) {
+                updateStep('verify', step.progress >= 100 ? 'completed' : 'running', step.message)
+              } else if (stepName.includes('connect') || stepName.includes('ready')) {
+                updateStep('connect', step.progress >= 100 ? 'completed' : 'running', step.message)
+              }
+            })
+          }
+          
+          // Check if provisioning is complete
+          if (provisionData.status === 'running' || provisionData.status === 'active') {
+            updateStep('ssh', 'completed', 'SSH connected')
+            updateStep('install', 'completed', 'OpenClaw installed')
+            updateStep('verify', 'completed', 'Gateway verified')
+            updateStep('connect', 'completed', 'WebSocket ready')
+            setCurrentStep(7)
+            setIsComplete(true)
+            
+            setTimeout(() => {
+              router.push('/app')
+            }, 3000)
+            return
+          }
+        }
+
+        // Also check worker status as fallback
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/workers/${workerId}?_t=${Date.now()}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         })
@@ -147,14 +188,14 @@ export default function ProvisionPage() {
           setCurrentStep(5)
         }
 
-        if (worker?.status === 'active') {
+        if (worker?.status === 'active' || worker?.status === 'running') {
+          updateStep('ssh', 'completed', 'SSH connected')
           updateStep('install', 'completed', 'OpenClaw installed')
           updateStep('verify', 'completed', 'Gateway verified')
           updateStep('connect', 'completed', 'WebSocket ready')
           setCurrentStep(7)
           setIsComplete(true)
           
-          // Auto-redirect after 3 seconds
           setTimeout(() => {
             router.push('/app')
           }, 3000)
