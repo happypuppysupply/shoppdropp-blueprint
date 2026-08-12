@@ -106,11 +106,11 @@ export function StoreContent({ store }: StoreContentProps) {
         const wsUrl = `${process.env.NEXT_PUBLIC_API_URL?.replace('https', 'wss').replace('http', 'ws')}/ws/ai-chat?token=${session.access_token}`
         
         ws = new WebSocket(wsUrl)
-        wsRef.current = ws
+        aiChatWsRef.current = ws
         
         ws.onopen = () => {
           console.log('[AI-Chat-WS] Connected')
-          setIsWsConnected(true)
+          setIsAiChatWsConnected(true)
         }
         
         ws.onmessage = (event) => {
@@ -143,12 +143,12 @@ export function StoreContent({ store }: StoreContentProps) {
         
         ws.onclose = () => {
           console.log('[AI-Chat-WS] Disconnected')
-          setIsWsConnected(false)
+          setIsAiChatWsConnected(false)
         }
         
         ws.onerror = (error) => {
           console.error('[AI-Chat-WS] Error:', error)
-          setIsWsConnected(false)
+          setIsAiChatWsConnected(false)
         }
       } catch (error) {
         console.error('[AI-Chat-WS] Failed to connect:', error)
@@ -159,7 +159,7 @@ export function StoreContent({ store }: StoreContentProps) {
     
     return () => {
       ws?.close()
-      wsRef.current = null
+      aiChatWsRef.current = null
     }
   }, [selectedPage])
 
@@ -177,6 +177,8 @@ export function StoreContent({ store }: StoreContentProps) {
   const [taskActivities, setTaskActivities] = useState<Record<string, TaskActivity[]>>({})
   const [wsConnected, setWsConnected] = useState(false)
   const wsRef = useRef<WebSocket | null>(null)
+  const aiChatWsRef = useRef<WebSocket | null>(null)
+  const [isAiChatWsConnected, setIsAiChatWsConnected] = useState(false)
   const router = useRouter()
   
   // Connect to OpenClaw Gateway via WebSocket (proxied through backend)
@@ -631,7 +633,7 @@ export function StoreContent({ store }: StoreContentProps) {
     setIsTyping(true)
 
     // Send via WebSocket if connected
-    if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+    if (aiChatWsRef.current && aiChatWsRef.current.readyState === WebSocket.OPEN) {
       console.log('[AI-Chat-WS] Sending message')
       
       // Add empty assistant message for streaming
@@ -642,7 +644,7 @@ export function StoreContent({ store }: StoreContentProps) {
         timestamp: new Date()
       }])
       
-      wsRef.current.send(JSON.stringify({
+      aiChatWsRef.current.send(JSON.stringify({
         type: 'chat',
         content: chatInput,
         conversation_history: chatMessages.map(m => ({ role: m.role, content: m.content }))
