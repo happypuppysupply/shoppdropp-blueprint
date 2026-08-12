@@ -844,6 +844,8 @@ export function StoreContent({ store }: StoreContentProps) {
   }
 
   const handleReprovisionVPS = async () => {
+    console.log('[Reprovision] Starting...', worker?.id)
+    
     if (!worker?.id) {
       alert('No worker to reprovision')
       return
@@ -855,6 +857,10 @@ export function StoreContent({ store }: StoreContentProps) {
     
     try {
       setIsReprovisioning(true)
+      setShowInlineProvision(true)
+      setProvisionWorkerId(worker.id)
+      console.log('[Reprovision] Inline UI should show now')
+      
       setTaskResults(prev => [{ task: 'vps_reprovision', status: 'running', message: 'Reprovisioning VPS...', timestamp: new Date().toISOString() }, ...prev])
       
       // Call the reprovision API
