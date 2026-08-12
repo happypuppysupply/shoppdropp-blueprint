@@ -89,6 +89,8 @@ export function StoreContent({ store }: StoreContentProps) {
   const chatEndRef = useRef<HTMLDivElement>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const [isWsConnected, setIsWsConnected] = useState(false)
+  const aiChatWsRef = useRef<WebSocket | null>(null)
+  const [isAiChatWsConnected, setIsAiChatWsConnected] = useState(false)
 
   // WebSocket connection for AI chat
   useEffect(() => {
