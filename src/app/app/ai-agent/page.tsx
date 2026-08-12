@@ -254,7 +254,111 @@ export default function AIAgentPage() {
 
   return (
     <div className="flex h-[calc(100vh-4rem)] gap-4">
-      {/* LEFT SIDEBAR - Gateway & Config */}
+      {/* LEFT MAIN - Chat Interface */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <Sparkles className="w-6 h-6 text-violet-400" />
+            <div>
+              <h1 className="text-2xl font-bold text-white">AI Agent</h1>
+              <p className="text-slate-400 text-sm">Your autonomous dropshipping assistant</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Chat Card */}
+        <Card className="bg-[#111118] border-white/10 flex flex-col flex-1 min-h-0">
+          <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
+            {messages.map((msg, i) => (
+              <div key={i} className="space-y-2">
+                <div className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                  <div
+                    className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                      msg.role === 'user' ? 'bg-violet-500/20' : 'bg-pink-500/20'
+                    }`}
+                  >
+                    {msg.role === 'user' ? (
+                      <span className="text-xs text-violet-300">You</span>
+                    ) : (
+                      <Bot className="w-4 h-4 text-pink-400" />
+                    )}
+                  </div>
+                  <div
+                    className={`max-w-[80%] p-3 rounded-lg whitespace-pre-wrap ${
+                      msg.role === 'user'
+                        ? 'bg-violet-500/20 text-white'
+                        : 'bg-white/5 text-slate-200'
+                    }`}
+                  >
+                    {msg.content}
+                  </div>
+                </div>
+                
+                {msg.command_result && (
+                  <div className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                    <div className="w-8" />
+                    <div className="max-w-[80%] p-3 rounded-lg bg-slate-800/50 border border-slate-700">
+                      <div className="flex items-center gap-2 mb-2">
+                        {msg.command_result.status === 'success' || msg.command_result.status === 'queued' ? (
+                          <CheckCircle2 className="w-4 h-4 text-green-400" />
+                        ) : msg.command_result.status === 'error' ? (
+                          <AlertCircle className="w-4 h-4 text-red-400" />
+                        ) : (
+                          <Loader2 className="w-4 h-4 text-yellow-400 animate-spin" />
+                        )}
+                        <span className={`text-sm font-medium ${
+                          msg.command_result.status === 'error' ? 'text-red-400' : 'text-green-400'
+                        }`}>
+                          Command: {msg.command_result.status}
+                        </span>
+                      </div>
+                      {msg.command_result.message && (
+                        <p className="text-sm text-slate-300">{msg.command_result.message}</p>
+                      )}
+                      {msg.command_result.data && (
+                        <pre className="mt-2 text-xs text-slate-400 bg-black/30 p-2 rounded overflow-auto">
+                          {JSON.stringify(msg.command_result.data, null, 2)}
+                        </pre>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
+          </CardContent>
+          
+          <CardHeader className="border-t border-white/10 pt-4">
+            <div className="flex gap-2">
+              <Input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Ask me anything about your store, worker, or dropshipping..."
+                className="bg-white/5 border-white/10 text-white"
+                disabled={loading}
+              />
+              <Button 
+                onClick={sendMessage} 
+                className="bg-violet-600 hover:bg-violet-500"
+                disabled={loading || !input.trim()}
+              >
+                {loading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-slate-500 mt-2">
+              Try: "provision a vps", "check worker status", "run product research task"
+            </p>
+          </CardHeader>
+        </Card>
+      </div>
+
+      {/* RIGHT SIDEBAR - Gateway & Config */}
       <div className="w-80 flex-shrink-0 space-y-4 overflow-y-auto">
         
         {/* Gateway Status */}
@@ -475,110 +579,6 @@ export default function AIAgentPage() {
               <ChevronRight className="w-4 h-4" />
             </Button>
           </CardContent>
-        </Card>
-      </div>
-
-      {/* RIGHT MAIN - Chat Interface */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <Sparkles className="w-6 h-6 text-violet-400" />
-            <div>
-              <h1 className="text-2xl font-bold text-white">AI Agent</h1>
-              <p className="text-slate-400 text-sm">Your autonomous dropshipping assistant</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Chat Card */}
-        <Card className="bg-[#111118] border-white/10 flex flex-col flex-1 min-h-0">
-          <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
-            {messages.map((msg, i) => (
-              <div key={i} className="space-y-2">
-                <div className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                      msg.role === 'user' ? 'bg-violet-500/20' : 'bg-pink-500/20'
-                    }`}
-                  >
-                    {msg.role === 'user' ? (
-                      <span className="text-xs text-violet-300">You</span>
-                    ) : (
-                      <Bot className="w-4 h-4 text-pink-400" />
-                    )}
-                  </div>
-                  <div
-                    className={`max-w-[80%] p-3 rounded-lg whitespace-pre-wrap ${
-                      msg.role === 'user'
-                        ? 'bg-violet-500/20 text-white'
-                        : 'bg-white/5 text-slate-200'
-                    }`}
-                  >
-                    {msg.content}
-                  </div>
-                </div>
-                
-                {msg.command_result && (
-                  <div className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                    <div className="w-8" />
-                    <div className="max-w-[80%] p-3 rounded-lg bg-slate-800/50 border border-slate-700">
-                      <div className="flex items-center gap-2 mb-2">
-                        {msg.command_result.status === 'success' || msg.command_result.status === 'queued' ? (
-                          <CheckCircle2 className="w-4 h-4 text-green-400" />
-                        ) : msg.command_result.status === 'error' ? (
-                          <AlertCircle className="w-4 h-4 text-red-400" />
-                        ) : (
-                          <Loader2 className="w-4 h-4 text-yellow-400 animate-spin" />
-                        )}
-                        <span className={`text-sm font-medium ${
-                          msg.command_result.status === 'error' ? 'text-red-400' : 'text-green-400'
-                        }`}>
-                          Command: {msg.command_result.status}
-                        </span>
-                      </div>
-                      {msg.command_result.message && (
-                        <p className="text-sm text-slate-300">{msg.command_result.message}</p>
-                      )}
-                      {msg.command_result.data && (
-                        <pre className="mt-2 text-xs text-slate-400 bg-black/30 p-2 rounded overflow-auto">
-                          {JSON.stringify(msg.command_result.data, null, 2)}
-                        </pre>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
-          </CardContent>
-          
-          <CardHeader className="border-t border-white/10 pt-4">
-            <div className="flex gap-2">
-              <Input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Ask me anything about your store, worker, or dropshipping..."
-                className="bg-white/5 border-white/10 text-white"
-                disabled={loading}
-              />
-              <Button 
-                onClick={sendMessage} 
-                className="bg-violet-600 hover:bg-violet-500"
-                disabled={loading || !input.trim()}
-              >
-                {loading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Send className="w-4 h-4" />
-                )}
-              </Button>
-            </div>
-            <p className="text-xs text-slate-500 mt-2">
-              Try: "provision a vps", "check worker status", "run product research task"
-            </p>
-          </CardHeader>
         </Card>
       </div>
     </div>
