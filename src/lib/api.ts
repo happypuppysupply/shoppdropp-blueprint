@@ -63,7 +63,7 @@ export const api = {
   // AI
   ai: {
     configure: (provider: string, model: string, apiKey: string) =>
-      api.request('/ai-chat/configure', { method: 'POST', body: JSON.stringify({ provider, model, apiKey }) }),
+      api.request('/ai/config', { method: 'POST', body: JSON.stringify({ provider, model, apiKey }) }),
     chat: (message: string, history: any[]) =>
       api.request('/ai-chat/chat', { method: 'POST', body: JSON.stringify({ message, conversation_history: history }) }),
     getContext: () => api.request('/ai-chat/context'),
