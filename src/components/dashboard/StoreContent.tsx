@@ -845,12 +845,33 @@ export function StoreContent({ store }: StoreContentProps) {
       return
     }
     
-    if (!confirm('This will destroy the current VPS and create a new one with the real worker. Continue?')) {
+    if (!confirm('This will destroy the current VPS and create a new one. Continue?')) {
       return
     }
     
-    // Redirect to provision progress page
     try {
+      setIsReprovisioning(true)
+      setTaskResults(prev => [{ task: 'vps_reprovision', status: 'running', message: 'Reprovisioning VPS...', timestamp: new Date().toISOString() }, ...prev])
+      
+      // Call the reprovision API
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/workers/${worker.id}/reprovision`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${(await getSupabaseClient().auth.getSession()).data.session?.access_token}`,
+          'Content-Type': 'application/json'
+        }
+      })
+      
+      if (!response.ok) {
+        throw new Error('Reprovision API failed')
+      }
+      
+      const result = await response.json()
+      console.log('[VPS] Reprovision response:', result)
+      
+      setTaskResults(prev => [{ task: 'vps_reprovision', status: 'completed', message: 'Reprovision started', timestamp: new Date().toISOString() }, ...prev])
+      
+      // Navigate to provision progress page to watch the build
       router.push(`/app/provision?workerId=${worker.id}`)
     } catch (error: any) {
       console.error('[VPS] Failed to reprovision:', error)
