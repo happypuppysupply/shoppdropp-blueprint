@@ -9,9 +9,10 @@ import { Separator } from '@/components/ui/separator'
 import { 
   Bot, Send, Sparkles, Server, Store, AlertCircle, CheckCircle2, 
   Loader2, Wallet, TrendingUp, Settings, Activity, Zap, 
-  Shield, CreditCard, ChevronRight
+  Shield, CreditCard, ChevronRight, Rocket, LayoutTemplate
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { OnboardingWizard } from '@/components/dashboard/OnboardingWizard'
 
 interface Message {
   role: 'user' | 'assistant' | 'system'
@@ -50,6 +51,19 @@ interface AIConfig {
   model: string
 }
 
+interface WorkflowStatus {
+  onboardingComplete: boolean
+  canStartWorkflow: boolean
+  missingRequirements: string[]
+  aiConfigured: boolean
+  storeConfig?: {
+    market?: string
+    brandVoice?: string
+    siteStyle?: string
+    targetAudience?: any
+  }
+}
+
 export default function AIAgentPage() {
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<Message[]>([
@@ -64,6 +78,13 @@ export default function AIAgentPage() {
   const [budget, setBudget] = useState<BudgetData | null>(null)
   const [loadingBudget, setLoadingBudget] = useState(true)
   const [aiConfig, setAiConfig] = useState<AIConfig | null>(null)
+  
+  // Onboarding & Workflow state
+  const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatus | null>(null)
+  const [loadingWorkflow, setLoadingWorkflow] = useState(true)
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [hasGreeted, setHasGreeted] = useState(false)
+  
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://shoppdropp-api.onrender.com'
 
@@ -79,7 +100,99 @@ export default function AIAgentPage() {
     loadContext()
     loadBudget()
     loadAIConfig()
+    loadWorkflowStatus()
   }, [])
+  
+  // Show onboarding if workflow not ready and has active store
+  useEffect(() => {
+    if (!loadingWorkflow && workflowStatus && !workflowStatus.canStartWorkflow && context?.stores?.[0] && !showOnboarding) {
+      // Check if we should auto-show onboarding
+      const shouldShow = !workflowStatus.onboardingComplete || workflowStatus.missingRequirements.length > 0
+      if (shouldShow) {
+        setShowOnboarding(true)
+      }
+    }
+  }, [loadingWorkflow, workflowStatus, context, showOnboarding])
+  
+  // Show greeting when onboarding completes
+  useEffect(() => {
+    if (workflowStatus?.onboardingComplete && !hasGreeted && !loadingWorkflow) {
+      setHasGreeted(true)
+      const greeting = generateOnboardingGreeting(workflowStatus.storeConfig)
+      setMessages(prev => [...prev, { role: 'assistant', content: greeting }])
+    }
+  }, [workflowStatus, hasGreeted, loadingWorkflow])
+  
+  function generateOnboardingGreeting(config?: WorkflowStatus['storeConfig']) {
+    let greeting = `🎉 **Ready to Get Your Dropshipping Store Up and Running!**\n\n`
+    
+    if (config?.market) {
+      greeting += `I've got your store configuration for **${config.market}**. `
+    }
+    
+    greeting += `Here's what I'm going to help you build:\n\n`
+    greeting += `**The ShoppDropp Workflow:**\n`
+    greeting += `1. 🔍 **Product Research** - Find trending, high-margin products in your niche\n`
+    greeting += `2. 📦 **Supplier Sourcing** - Connect with CJ Dropshipping for reliable fulfillment\n`
+    greeting += `3. 🎨 **Store Building** - Create your Shopify theme and product listings\n`
+    greeting += `4. 📢 **Marketing Launch** - Set up Meta Ads targeting your audience\n`
+    greeting += `5. 📊 **Performance Review** - Analyze metrics and optimize\n`
+    greeting += `6. 🔄 **Iterate & Improve** - Continuous optimization based on data\n\n`
+    
+    if (!workflowStatus?.canStartWorkflow) {
+      greeting += `⚠️ **Before we start:** Your store configuration needs a few more details. Let's complete that first!`
+    } else {
+      greeting += `✅ **You're all set!** Just say "start my store" and I'll begin the workflow.`
+    }
+    
+    return greeting
+  }
+  
+  async function loadWorkflowStatus() {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        setLoadingWorkflow(false)
+        return
+      }
+      
+      // Get first store
+      const storeRes = await fetch(`${API_URL}/api/stores`, {
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
+      })
+      
+      if (!storeRes.ok) {
+        setLoadingWorkflow(false)
+        return
+      }
+      
+      const stores = await storeRes.json()
+      if (stores.length === 0) {
+        setLoadingWorkflow(false)
+        return
+      }
+      
+      const storeId = stores[0].id
+      
+      const response = await fetch(`${API_URL}/api/onboarding/workflow-status/${storeId}`, {
+        headers: { 'Authorization': `Bearer ${session.access_token}` },
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setWorkflowStatus(data)
+      }
+    } catch (error) {
+      console.error('Failed to load workflow status:', error)
+    } finally {
+      setLoadingWorkflow(false)
+    }
+  }
+  
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false)
+    loadWorkflowStatus() // Refresh workflow status
+  }
 
   async function loadContext() {
     try {
@@ -545,6 +658,81 @@ export default function AIAgentPage() {
           </Card>
         )}
 
+        {/* Workflow Status */}
+        {!loadingWorkflow && workflowStatus && (
+          <Card className={`border-white/10 ${
+            workflowStatus.canStartWorkflow 
+              ? 'bg-green-950/20 border-green-500/30' 
+              : 'bg-yellow-950/20 border-yellow-500/30'
+          }`}>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2">
+                {workflowStatus.canStartWorkflow ? (
+                  <Rocket className="w-4 h-4 text-green-400" />
+                ) : (
+                  <LayoutTemplate className="w-4 h-4 text-yellow-400" />
+                )}
+                <span className={workflowStatus.canStartWorkflow ? 'text-green-400' : 'text-yellow-400'}>
+                  {workflowStatus.canStartWorkflow ? 'Ready to Launch' : 'Setup Required'}
+                </span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-400">Onboarding</span>
+                {workflowStatus.onboardingComplete ? (
+                  <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    Complete
+                  </Badge>
+                ) : (
+                  <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-xs">
+                    <AlertCircle className="w-3 h-3 mr-1" />
+                    Incomplete
+                  </Badge>
+                )}
+              </div>
+              
+              {workflowStatus.storeConfig?.market && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-slate-400">Niche</span>
+                  <span className="text-sm text-white truncate max-w-[120px]">
+                    {workflowStatus.storeConfig.market}
+                  </span>
+                </div>
+              )}
+              
+              {!workflowStatus.canStartWorkflow && workflowStatus.missingRequirements.length > 0 && (
+                <div className="pt-2 border-t border-white/10">
+                  <p className="text-xs text-slate-500 mb-2">Missing:</p>
+                  {workflowStatus.missingRequirements.map((req) => (
+                    <div key={req} className="text-xs text-yellow-400/80 mb-1">
+                      • {req.replace(/_/g, ' ')}
+                    </div>
+                  ))}
+                  <Button 
+                    size="sm" 
+                    className="w-full mt-3 bg-yellow-600 hover:bg-yellow-500"
+                    onClick={() => setShowOnboarding(true)}
+                  >
+                    Complete Setup
+                  </Button>
+                </div>
+              )}
+              
+              {workflowStatus.canStartWorkflow && (
+                <Button 
+                  size="sm" 
+                  className="w-full mt-2 bg-green-600 hover:bg-green-500"
+                  onClick={() => setInput('start my store workflow')}
+                >
+                  Start Workflow
+                </Button>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Quick Actions */}
         <Card className="bg-[#111118] border-white/10">
           <CardHeader className="pb-3">
@@ -581,6 +769,15 @@ export default function AIAgentPage() {
           </CardContent>
         </Card>
       </div>
+      
+      {/* Onboarding Wizard Modal */}
+      {showOnboarding && context?.stores?.[0] && (
+        <OnboardingWizard
+          storeId={context.stores[0].id}
+          onComplete={handleOnboardingComplete}
+          onSkip={() => setShowOnboarding(false)}
+        />
+      )}
     </div>
   )
 }
