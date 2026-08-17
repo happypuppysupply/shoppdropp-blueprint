@@ -21,6 +21,7 @@ interface AuthContextType {
   signInWithMagicLink: (email: string) => Promise<{ error: AuthError | null }>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
+  token: string | null;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -32,6 +33,7 @@ interface AuthProviderProps {
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const supabaseRef = useRef<SupabaseClient | null>(null);
 
@@ -45,11 +47,33 @@ export function AuthProvider({ children }: AuthProviderProps) {
       return;
     }
 
-    // Check active sessions
+    // Check active sessions AND localStorage (custom JWT)
     const getUser = async () => {
+      // First check Supabase session
       const { data: { session } } = await supabaseRef.current!.auth.getSession();
-      setSession(session);
-      setUser(session?.user ?? null);
+      
+      if (session) {
+        setSession(session);
+        setUser(session.user);
+        setToken(session.access_token);
+        setIsLoading(false);
+        return;
+      }
+      
+      // Fallback: Check localStorage for custom JWT
+      const storedToken = localStorage.getItem('token');
+      const storedUser = localStorage.getItem('user');
+      
+      if (storedToken && storedUser) {
+        try {
+          const userData = JSON.parse(storedUser);
+          setUser(userData as User);
+          setToken(storedToken);
+        } catch (e) {
+          console.error('Failed to parse stored user:', e);
+        }
+      }
+      
       setIsLoading(false);
     };
 
@@ -131,6 +155,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (!supabaseRef.current) return;
     
     await supabaseRef.current.auth.signOut();
+    
+    // Also clear localStorage (custom JWT)
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
+    setToken(null);
   }, []);
 
   const value: AuthContextType = {
@@ -143,6 +172,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     signInWithMagicLink,
     signInWithGoogle,
     signOut,
+    token,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
