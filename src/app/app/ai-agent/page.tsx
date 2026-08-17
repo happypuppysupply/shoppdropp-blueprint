@@ -136,6 +136,13 @@ export default function AIAgentPage() {
     scrollToBottom()
   }, [messages])
 
+  // Clear error when auth becomes ready
+  useEffect(() => {
+    if (isAuthenticated && (aiConfigError === 'Please sign in first' || aiConfigError === 'Session not available. Please refresh the page.')) {
+      setAiConfigError('')
+    }
+  }, [isAuthenticated, aiConfigError])
+
   // Initialize - load everything when auth is ready
   useEffect(() => {
     console.log('[AI Agent] Initializing v2026-08-17-002, auth:', isAuthenticated)
