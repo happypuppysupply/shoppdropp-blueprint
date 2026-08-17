@@ -230,6 +230,22 @@ export function StoreLayout({ children }: { children: React.ReactNode }) {
                   const Icon = page.icon
                   const isSelected = selectedPage === page.id
                   
+                  // AI Agent links to separate page
+                  if (page.id === 'ai-agent') {
+                    return (
+                      <a
+                        key={page.id}
+                        href="/app/ai-agent"
+                        className={`w-full px-4 py-3 flex items-center gap-3 text-sm hover:bg-white/5 transition-colors ${
+                          isSelected ? 'text-violet-400 bg-violet-500/10 border-l-2 border-violet-500' : 'text-slate-400 border-l-2 border-transparent'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" />
+                        {page.label}
+                      </a>
+                    )
+                  }
+                  
                   return (
                     <button
                       key={page.id}
