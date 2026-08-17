@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -9,7 +9,7 @@ import { Separator } from '@/components/ui/separator'
 import { 
   Bot, Send, Sparkles, Server, Store, AlertCircle, CheckCircle2, 
   Loader2, Wallet, TrendingUp, Settings, Activity, Zap, 
-  Shield, CreditCard, ChevronRight, Rocket, LayoutTemplate
+  Shield, CreditCard, ChevronRight, Rocket, LayoutTemplate, Brain, X, AlertTriangle
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { OnboardingWizard } from '@/components/dashboard/OnboardingWizard'
@@ -18,6 +18,7 @@ interface Message {
   role: 'user' | 'assistant' | 'system'
   content: string
   command_result?: any
+  isStreaming?: boolean
 }
 
 interface ContextData {
@@ -64,20 +65,49 @@ interface WorkflowStatus {
   }
 }
 
+const AI_PROVIDERS = [
+  { 
+    id: 'openrouter', 
+    name: 'OpenRouter', 
+    description: 'Recommended: Access to Kimi, Claude, GPT-4, and more with one API key',
+    models: [
+      { id: 'moonshotai/kimi-k2.5', name: 'Kimi K2.5 (Recommended)', description: 'Fast, capable, cost-effective' },
+      { id: 'anthropic/claude-3.5-sonnet', name: 'Claude 3.5 Sonnet', description: 'Excellent reasoning and coding' },
+      { id: 'openai/gpt-4o', name: 'GPT-4o', description: 'Great all-around performance' },
+      { id: 'openai/gpt-4o-mini', name: 'GPT-4o Mini', description: 'Fast and economical' },
+    ],
+    docsUrl: 'https://openrouter.ai/keys'
+  },
+  { 
+    id: 'openai', 
+    name: 'OpenAI', 
+    description: 'Direct OpenAI API access',
+    models: [
+      { id: 'gpt-4o', name: 'GPT-4o', description: 'Best for complex tasks' },
+      { id: 'gpt-4', name: 'GPT-4', description: 'Reliable and capable' },
+      { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', description: 'Fast and affordable' },
+    ],
+    docsUrl: 'https://platform.openai.com/api-keys'
+  },
+]
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://shoppdropp-api.onrender.com'
+
 export default function AIAgentPage() {
   const [input, setInput] = useState('')
-  const [messages, setMessages] = useState<Message[]>([
-    { 
-      role: 'assistant', 
-      content: "Hello! I'm your ShoppDropp AI assistant. I can help you:\n\n• Provision and manage VPS workers\n• Monitor store performance\n• Run automation tasks\n• Control your dropshipping operations\n\nWhat would you like to do today?" 
-    },
-  ])
+  const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(false)
   const [context, setContext] = useState<ContextData | null>(null)
   const [loadingContext, setLoadingContext] = useState(true)
   const [budget, setBudget] = useState<BudgetData | null>(null)
   const [loadingBudget, setLoadingBudget] = useState(true)
   const [aiConfig, setAiConfig] = useState<AIConfig | null>(null)
+  const [aiConfigStep, setAiConfigStep] = useState<'provider' | 'model' | 'key' | null>(null)
+  const [selectedProvider, setSelectedProvider] = useState('')
+  const [selectedModel, setSelectedModel] = useState('')
+  const [apiKeyInput, setApiKeyInput] = useState('')
+  const [savingAIConfig, setSavingAIConfig] = useState(false)
+  const [aiConfigError, setAiConfigError] = useState('')
   
   // Onboarding & Workflow state
   const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatus | null>(null)
@@ -85,8 +115,10 @@ export default function AIAgentPage() {
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [hasGreeted, setHasGreeted] = useState(false)
   
+  // WebSocket refs
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://shoppdropp-api.onrender.com'
+  const wsRef = useRef<WebSocket | null>(null)
+  const [wsConnected, setWsConnected] = useState(false)
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -96,48 +128,73 @@ export default function AIAgentPage() {
     scrollToBottom()
   }, [messages])
 
+  // Initialize - load everything
   useEffect(() => {
     loadContext()
     loadBudget()
     loadAIConfig()
     loadWorkflowStatus()
   }, [])
-  
+
   // Show onboarding if workflow not ready and has active store
   useEffect(() => {
-    if (!loadingWorkflow && workflowStatus && !workflowStatus.canStartWorkflow && context?.stores?.[0] && !showOnboarding) {
-      // Check if we should auto-show onboarding
+    if (!loadingWorkflow && workflowStatus && !workflowStatus.canStartWorkflow && context?.stores?.[0] && !showOnboarding && aiConfig) {
       const shouldShow = !workflowStatus.onboardingComplete || workflowStatus.missingRequirements.length > 0
       if (shouldShow) {
         setShowOnboarding(true)
       }
     }
-  }, [loadingWorkflow, workflowStatus, context, showOnboarding])
-  
+  }, [loadingWorkflow, workflowStatus, context, showOnboarding, aiConfig])
+
   // Show greeting when onboarding completes
   useEffect(() => {
-    if (workflowStatus?.onboardingComplete && !hasGreeted && !loadingWorkflow) {
+    if (workflowStatus?.onboardingComplete && !hasGreeted && !loadingWorkflow && aiConfig) {
       setHasGreeted(true)
       const greeting = generateOnboardingGreeting(workflowStatus.storeConfig)
       setMessages(prev => [...prev, { role: 'assistant', content: greeting }])
     }
-  }, [workflowStatus, hasGreeted, loadingWorkflow])
-  
+  }, [workflowStatus, hasGreeted, loadingWorkflow, aiConfig])
+
+  // Connect WebSocket when AI is configured
+  useEffect(() => {
+    if (aiConfig && !wsRef.current) {
+      connectWebSocket()
+    }
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close()
+        wsRef.current = null
+      }
+    }
+  }, [aiConfig])
+
   function generateOnboardingGreeting(config?: WorkflowStatus['storeConfig']) {
-    let greeting = `🎉 **Ready to Get Your Dropshipping Store Up and Running!**\n\n`
+    let greeting = `🎉 **Welcome! Your AI Agent is Ready**
+
+`
     
     if (config?.market) {
-      greeting += `I've got your store configuration for **${config.market}**. `
+      greeting += `I see you're building a store in **${config.market}**. `
     }
     
-    greeting += `Here's what I'm going to help you build:\n\n`
-    greeting += `**The ShoppDropp Workflow:**\n`
-    greeting += `1. 🔍 **Product Research** - Find trending, high-margin products in your niche\n`
-    greeting += `2. 📦 **Supplier Sourcing** - Connect with CJ Dropshipping for reliable fulfillment\n`
-    greeting += `3. 🎨 **Store Building** - Create your Shopify theme and product listings\n`
-    greeting += `4. 📢 **Marketing Launch** - Set up Meta Ads targeting your audience\n`
-    greeting += `5. 📊 **Performance Review** - Analyze metrics and optimize\n`
-    greeting += `6. 🔄 **Iterate & Improve** - Continuous optimization based on data\n\n`
+    greeting += `Here's what I can help you with:
+
+`
+    greeting += `**The ShoppDropp Workflow:**
+`
+    greeting += `1. 🔍 **Product Research** - Find trending, high-margin products
+`
+    greeting += `2. 📦 **Supplier Sourcing** - Connect with CJ Dropshipping
+`
+    greeting += `3. 🎨 **Store Building** - Create Shopify themes and listings
+`
+    greeting += `4. 📢 **Marketing Launch** - Set up Meta Ads campaigns
+`
+    greeting += `5. 📊 **Performance Review** - Analyze metrics and optimize
+`
+    greeting += `6. 🔄 **Iterate & Improve** - Continuous optimization
+
+`
     
     if (!workflowStatus?.canStartWorkflow) {
       greeting += `⚠️ **Before we start:** Your store configuration needs a few more details. Let's complete that first!`
@@ -147,7 +204,89 @@ export default function AIAgentPage() {
     
     return greeting
   }
-  
+
+  async function connectWebSocket() {
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const wsUrl = `${API_URL.replace('https://', 'wss://').replace('http://', 'ws://')}/ws/ai-chat?token=${session.access_token}`
+      
+      const ws = new WebSocket(wsUrl)
+      
+      ws.onopen = () => {
+        console.log('[AI-WS] Connected')
+        setWsConnected(true)
+      }
+      
+      ws.onmessage = (event) => {
+        const data = JSON.parse(event.data)
+        handleWebSocketMessage(data)
+      }
+      
+      ws.onclose = () => {
+        console.log('[AI-WS] Disconnected')
+        setWsConnected(false)
+        wsRef.current = null
+      }
+      
+      ws.onerror = (error) => {
+        console.error('[AI-WS] Error:', error)
+        setWsConnected(false)
+      }
+      
+      wsRef.current = ws
+    } catch (error) {
+      console.error('[AI-WS] Failed to connect:', error)
+    }
+  }
+
+  function handleWebSocketMessage(data: any) {
+    switch (data.type) {
+      case 'connected':
+        console.log('[AI-WS] Server confirmed connection')
+        break
+      case 'thinking':
+        setMessages(prev => {
+          const lastMsg = prev[prev.length - 1]
+          if (lastMsg?.role === 'assistant' && lastMsg?.isStreaming) {
+            return prev
+          }
+          return [...prev, { role: 'assistant', content: '', isStreaming: true }]
+        })
+        break
+      case 'chunk':
+        setMessages(prev => {
+          const newMessages = [...prev]
+          const lastMsg = newMessages[newMessages.length - 1]
+          if (lastMsg?.role === 'assistant') {
+            lastMsg.content += data.content
+            lastMsg.isStreaming = true
+          }
+          return newMessages
+        })
+        break
+      case 'complete':
+        setMessages(prev => {
+          const newMessages = [...prev]
+          const lastMsg = newMessages[newMessages.length - 1]
+          if (lastMsg?.role === 'assistant') {
+            lastMsg.isStreaming = false
+          }
+          return newMessages
+        })
+        setLoading(false)
+        break
+      case 'error':
+        setMessages(prev => [...prev, { 
+          role: 'assistant', 
+          content: `Error: ${data.error}` 
+        }])
+        setLoading(false)
+        break
+    }
+  }
+
   async function loadWorkflowStatus() {
     try {
       const { data: { session } } = await supabase.auth.getSession()
@@ -156,7 +295,6 @@ export default function AIAgentPage() {
         return
       }
       
-      // Get first store
       const storeRes = await fetch(`${API_URL}/api/stores`, {
         headers: { 'Authorization': `Bearer ${session.access_token}` },
       })
@@ -188,10 +326,10 @@ export default function AIAgentPage() {
       setLoadingWorkflow(false)
     }
   }
-  
+
   const handleOnboardingComplete = () => {
     setShowOnboarding(false)
-    loadWorkflowStatus() // Refresh workflow status
+    loadWorkflowStatus()
   }
 
   async function loadContext() {
@@ -253,10 +391,74 @@ export default function AIAgentPage() {
         const data = await response.json()
         if (data.configured) {
           setAiConfig({ provider: data.provider, model: data.model })
+          // Add welcome message if AI is configured
+          setMessages([{ 
+            role: 'assistant', 
+            content: "Hello! I'm your ShoppDropp AI assistant. I can help you:\n\n• Provision and manage VPS workers\n• Monitor store performance\n• Run automation tasks\n• Control your dropshipping operations\n\nWhat would you like to do today?" 
+          }])
         }
       }
     } catch (error) {
       console.error('Failed to load AI config:', error)
+    }
+  }
+
+  const saveAIConfiguration = async () => {
+    setSavingAIConfig(true)
+    setAiConfigError('')
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) {
+        setAiConfigError('Please sign in first')
+        return
+      }
+
+      const response = await fetch(`${API_URL}/api/ai/config`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          provider: selectedProvider,
+          model: selectedModel,
+          apiKey: apiKeyInput,
+        }),
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to save configuration')
+      }
+
+      // Success - update state
+      setAiConfig({ provider: selectedProvider, model: selectedModel })
+      setAiConfigStep(null)
+      
+      // Refresh context and trigger onboarding
+      await loadContext()
+      await loadWorkflowStatus()
+      
+      // Show success message and trigger onboarding
+      setMessages([{ 
+        role: 'assistant', 
+        content: `✅ **AI Configuration Saved!**
+
+Your ${AI_PROVIDERS.find(p => p.id === selectedProvider)?.name} integration is now active with model **${selectedModel}**.
+
+Next, I need to learn about your store to provide personalized assistance. Let's complete your store configuration!` 
+      }])
+      
+      // Auto-show onboarding if not complete
+      setTimeout(() => {
+        setShowOnboarding(true)
+      }, 1500)
+      
+    } catch (error: any) {
+      setAiConfigError(error.message || 'Failed to save configuration')
+    } finally {
+      setSavingAIConfig(false)
     }
   }
 
@@ -270,6 +472,22 @@ export default function AIAgentPage() {
     const newMessages: Message[] = [...messages, { role: 'user', content: userMessage }]
     setMessages(newMessages)
 
+    // If WebSocket is connected, use it for streaming
+    if (wsRef.current?.readyState === WebSocket.OPEN) {
+      const conversationHistory = newMessages
+        .filter(m => m.role === 'user' || m.role === 'assistant')
+        .slice(-10)
+        .map(m => ({ role: m.role, content: m.content }))
+
+      wsRef.current.send(JSON.stringify({
+        type: 'chat',
+        content: userMessage,
+        conversation_history: conversationHistory,
+      }))
+      return
+    }
+
+    // Fallback to HTTP API
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
@@ -364,6 +582,300 @@ export default function AIAgentPage() {
 
   const activeWorker = context?.workers?.[0]
   const activeStore = context?.stores?.[0]
+  const provider = AI_PROVIDERS.find(p => p.id === selectedProvider)
+
+  // AI Configuration UI
+  const renderAIConfig = () => {
+    if (aiConfig) return null
+
+    if (!aiConfigStep) {
+      return (
+        <Card className="bg-gradient-to-br from-violet-950/50 to-pink-950/50 border-violet-500/30 mb-4">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-violet-500/20 rounded-xl">
+                <Brain className="w-6 h-6 text-violet-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-white mb-2">Configure AI Provider</h3>
+                <p className="text-slate-300 mb-4">
+                  Choose how you want to power your AI Agent:
+                </p>
+                <div className="space-y-3">
+                  <button
+                    onClick={() => setAiConfigStep('provider')}
+                    className="w-full p-4 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-violet-500/50 rounded-xl text-left transition-all"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-violet-500/20 rounded-lg">
+                        <Zap className="w-5 h-5 text-violet-400" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-white">Use My Own API Key</h4>
+                        <p className="text-sm text-slate-400">Connect your OpenRouter, OpenAI, or other provider</p>
+                      </div>
+                      <ChevronRight className="w-5 h-5 text-slate-500" />
+                    </div>
+                  </button>
+                  
+                  <button
+                    onClick={async () => {
+                      // Use ShoppDropp AI (platform key)
+                      setSavingAIConfig(true)
+                      setAiConfigError('')
+                      try {
+                        const { data: { session } } = await supabase.auth.getSession()
+                        if (!session) {
+                          setAiConfigError('Please sign in first')
+                          return
+                        }
+                        const response = await fetch(`${API_URL}/api/ai/config`, {
+                          method: 'POST',
+                          headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${session.access_token}`,
+                          },
+                          body: JSON.stringify({
+                            provider: 'openrouter',
+                            model: 'moonshotai/kimi-k2.5',
+                            usePlatformAI: true,
+                          }),
+                        })
+                        if (!response.ok) {
+                          const error = await response.json()
+                          throw new Error(error.error || 'Platform AI not available')
+                        }
+                        setAiConfig({ provider: 'openrouter', model: 'moonshotai/kimi-k2.5' })
+                        setMessages([{ 
+                          role: 'assistant', 
+                          content: `✅ **ShoppDropp AI Activated!**
+
+You're now using our platform AI (Kimi K2.5). This is perfect for getting started!
+
+Next, I need to learn about your store to provide personalized assistance. Let's complete your store configuration, and I'll also collect your API keys for Meta Ads, CJ Dropshipping, Shopify, and Research APIs.` 
+                        }])
+                        setTimeout(() => setShowOnboarding(true), 1500)
+                      } catch (error: any) {
+                        setAiConfigError(error.message || 'Failed to activate platform AI')
+                      } finally {
+                        setSavingAIConfig(false)
+                      }
+                    }}
+                    disabled={savingAIConfig}
+                    className="w-full p-4 bg-gradient-to-r from-violet-500/20 to-pink-500/20 hover:from-violet-500/30 hover:to-pink-500/30 border border-violet-500/30 rounded-xl text-left transition-all disabled:opacity-50"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-gradient-to-br from-violet-500 to-pink-500 rounded-lg">
+                        <Sparkles className="w-5 h-5 text-white" />
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-white">Use ShoppDropp AI</h4>
+                        <p className="text-sm text-slate-400">Use our platform AI (no API key needed)</p>
+                      </div>
+                      {savingAIConfig ? (
+                        <Loader2 className="w-5 h-5 text-violet-400 animate-spin" />
+                      ) : (
+                        <ChevronRight className="w-5 h-5 text-slate-500" />
+                      )}
+                    </div>
+                  </button>
+                </div>
+                {aiConfigError && (
+                  <p className="mt-3 text-sm text-red-400">{aiConfigError}</p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )
+    }
+
+    return (
+      <Card className="bg-[#111118] border-violet-500/30 mb-4">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-violet-500/20 rounded-lg">
+                <Brain className="w-5 h-5 text-violet-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-white">Configure AI Provider</h3>
+                <p className="text-sm text-slate-400">
+                  Step {aiConfigStep === 'provider' ? 1 : aiConfigStep === 'model' ? 2 : 3} of 3
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => {
+                setAiConfigStep(null)
+                setSelectedProvider('')
+                setSelectedModel('')
+                setApiKeyInput('')
+                setAiConfigError('')
+              }}
+              className="p-2 text-slate-400 hover:text-white"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {aiConfigError && (
+            <div className="mb-4 p-3 bg-red-500/20 border border-red-500/50 rounded-lg text-red-300 text-sm">
+              {aiConfigError}
+            </div>
+          )}
+
+          {/* Step 1: Provider Selection */}
+          {aiConfigStep === 'provider' && (
+            <div className="space-y-3">
+              <p className="text-slate-300 mb-4">
+                Select your AI provider:
+              </p>
+              {AI_PROVIDERS.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => {
+                    setSelectedProvider(p.id)
+                    setAiConfigStep('model')
+                  }}
+                  className="w-full p-4 bg-white/5 hover:bg-white/10 border border-white/10 hover:border-violet-500/50 rounded-xl text-left transition-all"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold text-white">{p.name}</h4>
+                      <p className="text-sm text-slate-400">{p.description}</p>
+                    </div>
+                    <div className="w-6 h-6 rounded-full border-2 border-white/20" />
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Step 2: Model Selection */}
+          {aiConfigStep === 'model' && provider && (
+            <div className="space-y-4">
+              <button
+                onClick={() => setAiConfigStep('provider')}
+                className="text-sm text-violet-400 hover:text-violet-300"
+              >
+                ← Back to providers
+              </button>
+              <p className="text-slate-300">
+                Select a model from {provider.name}:
+              </p>
+              <div className="space-y-2">
+                {provider.models.map((model: any) => (
+                  <button
+                    key={model.id}
+                    onClick={() => {
+                      setSelectedModel(model.id)
+                      setAiConfigStep('key')
+                    }}
+                    className={`w-full p-4 border rounded-xl text-left transition-all ${
+                      selectedModel === model.id
+                        ? 'bg-violet-500/20 border-violet-500'
+                        : 'bg-white/5 border-white/10 hover:border-white/30'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-white">{model.name}</p>
+                        <p className="text-sm text-slate-400">{model.description}</p>
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: API Key */}
+          {aiConfigStep === 'key' && provider && (
+            <form onSubmit={(e) => { e.preventDefault(); saveAIConfiguration(); }} className="space-y-4">
+              <button
+                type="button"
+                onClick={() => setAiConfigStep('model')}
+                className="text-sm text-violet-400 hover:text-violet-300"
+              >
+                ← Back to models
+              </button>
+              
+              <div className="p-4 bg-violet-500/10 border border-violet-500/30 rounded-xl">
+                <div className="flex items-center gap-2 mb-2">
+                  <Brain className="w-4 h-4 text-violet-400" />
+                  <span className="font-medium text-white">{provider.name}</span>
+                </div>
+                <code className="text-sm text-violet-300 font-mono">{selectedModel}</code>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  API Key
+                </label>
+                <input
+                  type="password"
+                  value={apiKeyInput}
+                  onChange={(e) => setApiKeyInput(e.target.value)}
+                  onPaste={(e) => {
+                    e.preventDefault()
+                    const pastedText = e.clipboardData.getData('text')
+                    setApiKeyInput(pastedText.trim())
+                  }}
+                  onKeyDown={(e) => {
+                    if ((e.metaKey || e.ctrlKey) && e.key === 'v') {
+                      // Allow native paste to work, onPaste will handle it
+                      return
+                    }
+                  }}
+                  className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono text-sm"
+                  placeholder={`sk-...`}
+                  required
+                />
+                <div className="mt-2 flex items-start gap-2 text-xs text-slate-500">
+                  <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                  <span>
+                    Your API key is encrypted and stored securely. 
+                    Get your key from{' '}
+                    <a 
+                      href={provider.docsUrl} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-violet-400 hover:underline"
+                    >
+                      {provider.name} console
+                    </a>
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setAiConfigStep(null)}
+                  className="flex-1 px-4 py-2 border border-white/20 text-slate-300 rounded-lg hover:bg-white/5"
+                >
+                  Cancel
+                </button>
+                <Button
+                  type="submit"
+                  disabled={savingAIConfig || !apiKeyInput.trim()}
+                  className="flex-1 bg-violet-600 hover:bg-violet-500 disabled:opacity-50"
+                >
+                  {savingAIConfig ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    'Save & Continue'
+                  )}
+                </Button>
+              </div>
+            </form>
+          )}
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <div className="flex h-[calc(100vh-4rem)] gap-4">
@@ -378,7 +890,16 @@ export default function AIAgentPage() {
               <p className="text-slate-400 text-sm">Your autonomous dropshipping assistant</p>
             </div>
           </div>
+          {wsConnected && (
+            <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
+              <div className="w-2 h-2 rounded-full bg-green-400 mr-1 animate-pulse" />
+              Live
+            </Badge>
+          )}
         </div>
+
+        {/* AI Config Prompt */}
+        {renderAIConfig()}
 
         {/* Chat Card */}
         <Card className="bg-[#111118] border-white/10 flex flex-col flex-1 min-h-0">
@@ -405,6 +926,9 @@ export default function AIAgentPage() {
                     }`}
                   >
                     {msg.content}
+                    {msg.isStreaming && (
+                      <span className="inline-block w-2 h-4 ml-1 bg-pink-400 animate-pulse" />
+                    )}
                   </div>
                 </div>
                 
@@ -448,14 +972,14 @@ export default function AIAgentPage() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask me anything about your store, worker, or dropshipping..."
+                placeholder={aiConfig ? "Ask me anything about your store, worker, or dropshipping..." : "Configure AI provider to start chatting..."}
                 className="bg-white/5 border-white/10 text-white"
-                disabled={loading}
+                disabled={loading || !aiConfig}
               />
               <Button 
                 onClick={sendMessage} 
                 className="bg-violet-600 hover:bg-violet-500"
-                disabled={loading || !input.trim()}
+                disabled={loading || !input.trim() || !aiConfig}
               >
                 {loading ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -465,7 +989,7 @@ export default function AIAgentPage() {
               </Button>
             </div>
             <p className="text-xs text-slate-500 mt-2">
-              Try: "provision a vps", "check worker status", "run product research task"
+              {aiConfig ? 'Try: "provision a vps", "check worker status", "run product research task"' : 'Configure your AI provider above to start using the AI Agent'}
             </p>
           </CardHeader>
         </Card>
@@ -496,8 +1020,8 @@ export default function AIAgentPage() {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm text-slate-400">WebSocket</span>
-              <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
-                Active
+              <Badge className={wsConnected ? "bg-green-500/20 text-green-400 border-green-500/30 text-xs" : "bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-xs"}>
+                {wsConnected ? 'Connected' : 'HTTP Mode'}
               </Badge>
             </div>
           </CardContent>
@@ -558,12 +1082,6 @@ export default function AIAgentPage() {
                 <span>Remaining: ${budget.remaining.toFixed(2)}</span>
                 <span>Resets in {budget.daysUntilReset}d</span>
               </div>
-              {budget.accountBalance !== undefined && (
-                <div className="flex items-center gap-2 text-xs text-slate-400 pt-2 border-t border-white/10">
-                  <CreditCard className="w-3 h-3" />
-                  <span>Balance: ${budget.accountBalance.toFixed(2)}</span>
-                </div>
-              )}
             </CardContent>
           </Card>
         )}
@@ -693,15 +1211,6 @@ export default function AIAgentPage() {
                 )}
               </div>
               
-              {workflowStatus.storeConfig?.market && (
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-400">Niche</span>
-                  <span className="text-sm text-white truncate max-w-[120px]">
-                    {workflowStatus.storeConfig.market}
-                  </span>
-                </div>
-              )}
-              
               {!workflowStatus.canStartWorkflow && workflowStatus.missingRequirements.length > 0 && (
                 <div className="pt-2 border-t border-white/10">
                   <p className="text-xs text-slate-500 mb-2">Missing:</p>
@@ -710,13 +1219,6 @@ export default function AIAgentPage() {
                       • {req.replace(/_/g, ' ')}
                     </div>
                   ))}
-                  <Button 
-                    size="sm" 
-                    className="w-full mt-3 bg-yellow-600 hover:bg-yellow-500"
-                    onClick={() => setShowOnboarding(true)}
-                  >
-                    Complete Setup
-                  </Button>
                 </div>
               )}
               
@@ -732,48 +1234,12 @@ export default function AIAgentPage() {
             </CardContent>
           </Card>
         )}
-
-        {/* Quick Actions */}
-        <Card className="bg-[#111118] border-white/10">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm flex items-center gap-2 text-slate-400">
-              <Settings className="w-4 h-4" />
-              Quick Actions
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <Button 
-              variant="ghost" 
-              className="w-full justify-between text-slate-400 hover:text-white"
-              onClick={() => setInput('provision a vps')}
-            >
-              <span>Provision VPS</span>
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              className="w-full justify-between text-slate-400 hover:text-white"
-              onClick={() => setInput('check worker status')}
-            >
-              <span>Check Status</span>
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-            <Button 
-              variant="ghost" 
-              className="w-full justify-between text-slate-400 hover:text-white"
-              onClick={() => setInput('run product research')}
-            >
-              <span>Product Research</span>
-              <ChevronRight className="w-4 h-4" />
-            </Button>
-          </CardContent>
-        </Card>
       </div>
-      
-      {/* Onboarding Wizard Modal */}
-      {showOnboarding && context?.stores?.[0] && (
-        <OnboardingWizard
-          storeId={context.stores[0].id}
+
+      {/* Onboarding Modal */}
+      {showOnboarding && activeStore && (
+        <OnboardingWizard 
+          storeId={activeStore.id}
           onComplete={handleOnboardingComplete}
           onSkip={() => setShowOnboarding(false)}
         />
