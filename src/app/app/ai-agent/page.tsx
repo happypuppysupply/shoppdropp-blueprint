@@ -93,6 +93,7 @@ const AI_PROVIDERS = [
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://shoppdropp-api.onrender.com'
 
+// Version: 2026-08-17-001 - Cache bust
 export default function AIAgentPage() {
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<Message[]>([])
@@ -135,6 +136,7 @@ export default function AIAgentPage() {
 
   // Initialize - load everything
   useEffect(() => {
+    console.log('[AI Agent] Initializing v2026-08-17-001')
     loadContext()
     loadBudget()
     loadAIConfig()
