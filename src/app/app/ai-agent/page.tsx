@@ -96,7 +96,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://shoppdropp-api.onren
 
 // Version: 2026-08-17-002 - Auth fix
 export default function AIAgentPage() {
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth()
+  const { user, session, isAuthenticated, isLoading: authLoading } = useAuth()
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(false)
@@ -436,7 +436,6 @@ export default function AIAgentPage() {
     setAiConfigError('')
 
     try {
-      const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
         setAiConfigError('Session not available. Please refresh the page.')
         console.error('[AI Config] No session available')
@@ -653,9 +652,8 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                       setSavingAIConfig(true)
                       setAiConfigError('')
                       try {
-                        const { data: { session } } = await supabase.auth.getSession()
                         if (!session) {
-                          setAiConfigError('Please sign in first')
+                          setAiConfigError('Session not available. Please refresh the page.')
                           return
                         }
                         const response = await fetch(`${API_URL}/api/ai/config`, {
