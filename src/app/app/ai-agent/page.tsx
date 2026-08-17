@@ -12,6 +12,7 @@ import {
   Shield, CreditCard, ChevronRight, Rocket, LayoutTemplate, Brain, X, AlertTriangle
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/hooks/useAuth'
 import { OnboardingWizard } from '@/components/dashboard/OnboardingWizard'
 
 interface Message {
@@ -93,8 +94,9 @@ const AI_PROVIDERS = [
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://shoppdropp-api.onrender.com'
 
-// Version: 2026-08-17-001 - Cache bust
+// Version: 2026-08-17-002 - Auth fix
 export default function AIAgentPage() {
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth()
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(false)
@@ -134,14 +136,16 @@ export default function AIAgentPage() {
     scrollToBottom()
   }, [messages])
 
-  // Initialize - load everything
+  // Initialize - load everything when auth is ready
   useEffect(() => {
-    console.log('[AI Agent] Initializing v2026-08-17-001')
-    loadContext()
-    loadBudget()
-    loadAIConfig()
-    loadWorkflowStatus()
-  }, [])
+    console.log('[AI Agent] Initializing v2026-08-17-002, auth:', isAuthenticated)
+    if (!authLoading && isAuthenticated) {
+      loadContext()
+      loadBudget()
+      loadAIConfig()
+      loadWorkflowStatus()
+    }
+  }, [authLoading, isAuthenticated])
 
   // Show onboarding if workflow not ready and has active store
   useEffect(() => {
@@ -427,7 +431,8 @@ export default function AIAgentPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) {
-        setAiConfigError('Please sign in first')
+        setAiConfigError('Session not available. Please refresh the page.')
+        console.error('[AI Config] No session available')
         return
       }
 
@@ -894,8 +899,8 @@ Next, I need to learn about your store to provide personalized assistance. Let's
     )
   }
 
-  // Loading Skeleton
-  if (loadingContext || loadingWorkflow) {
+  // Loading Skeleton - also show while auth is loading
+  if (authLoading || loadingContext || loadingWorkflow) {
     return (
       <div className="flex h-[calc(100vh-4rem)] gap-4">
         {/* LEFT - Loading Skeleton */}
