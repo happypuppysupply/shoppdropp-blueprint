@@ -160,7 +160,7 @@ export default function ProvisionPage() {
             setIsComplete(true)
             
             setTimeout(() => {
-              router.push('/app')
+              router.push('/app/ai-agent')
             }, 3000)
             return
           }
@@ -197,7 +197,7 @@ export default function ProvisionPage() {
           setIsComplete(true)
           
           setTimeout(() => {
-            router.push('/app')
+            router.push('/app/ai-agent')
           }, 3000)
           return
         }
@@ -240,10 +240,10 @@ export default function ProvisionPage() {
             <p className="text-slate-400">{error}</p>
           </div>
           <Button 
-            onClick={() => router.push('/app')} 
+            onClick={() => router.push('/app/ai-agent')} 
             className="w-full bg-gradient-to-r from-violet-600 to-pink-600"
           >
-            Back to Dashboard
+            Back to AI Agent
           </Button>
         </div>
       </div>
@@ -263,7 +263,7 @@ export default function ProvisionPage() {
           </h1>
           <p className="text-slate-400">
             {isComplete 
-              ? 'Redirecting to dashboard...' 
+              ? 'Redirecting to AI Agent...' 
               : 'This will take 3-5 minutes. Please don\'t close this page.'}
           </p>
         </div>
@@ -332,10 +332,10 @@ export default function ProvisionPage() {
         {isComplete && (
           <div className="text-center">
             <Button 
-              onClick={() => router.push('/app')}
+              onClick={() => router.push('/app/ai-agent')}
               className="bg-gradient-to-r from-violet-600 to-pink-600"
             >
-              Go to Dashboard
+              Go to AI Agent
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </div>
@@ -345,7 +345,7 @@ export default function ProvisionPage() {
         {!isComplete && (
           <div className="text-center">
             <button 
-              onClick={() => router.push('/app')}
+              onClick={() => router.push('/app/ai-agent')}
               className="text-slate-500 hover:text-slate-300 text-sm"
             >
               Cancel and go back
