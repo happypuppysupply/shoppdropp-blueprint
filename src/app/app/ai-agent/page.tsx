@@ -329,6 +329,7 @@ export default function AIAgentPage() {
       
       const storeRes = await fetch(`${API_URL}/api/stores`, {
         headers: { 'Authorization': `Bearer ${token}` },
+      })
       
       if (!storeRes.ok) {
         setLoadingWorkflow(false)
