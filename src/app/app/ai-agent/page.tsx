@@ -96,7 +96,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://shoppdropp-api.onren
 
 // Version: 2026-08-17-002 - Auth fix
 export default function AIAgentPage() {
-  const { user, session, isAuthenticated, isLoading: authLoading } = useAuth()
+  const { user, session, token: authToken, isAuthenticated, isLoading: authLoading } = useAuth()
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(false)
@@ -225,18 +225,22 @@ export default function AIAgentPage() {
 
   async function connectWebSocket() {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
+      // Use token from useAuth (supports Supabase session OR localStorage JWT)
+      const token = authToken || session?.access_token
+      if (!token) {
+        console.log('[AI-WS] No auth token available')
+        return
+      }
 
       // Use worker's gateway if available, otherwise fallback to backend
       let wsUrl: string
       if (activeWorker?.ip && activeWorker.status === 'running') {
         // Connect directly to worker's OpenClaw gateway
-        wsUrl = `ws://${activeWorker.ip}:3001/ws?token=${session.access_token}`
+        wsUrl = `ws://${activeWorker.ip}:3001/ws?token=${token}`
         console.log('[AI-WS] Connecting to worker gateway:', wsUrl)
       } else {
         // Fallback to backend WebSocket
-        wsUrl = `${API_URL.replace('https://', 'wss://').replace('http://', 'ws://')}/ws/ai-chat?token=${session.access_token}`
+        wsUrl = `${API_URL.replace('https://', 'wss://').replace('http://', 'ws://')}/ws/ai-chat?token=${token}`
         console.log('[AI-WS] Connecting to backend:', wsUrl)
       }
       
@@ -317,15 +321,14 @@ export default function AIAgentPage() {
 
   async function loadWorkflowStatus() {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
+      const token = authToken || session?.access_token
+      if (!token) {
         setLoadingWorkflow(false)
         return
       }
       
       const storeRes = await fetch(`${API_URL}/api/stores`, {
-        headers: { 'Authorization': `Bearer ${session.access_token}` },
-      })
+        headers: { 'Authorization': `Bearer ${token}` },
       
       if (!storeRes.ok) {
         setLoadingWorkflow(false)
@@ -341,7 +344,7 @@ export default function AIAgentPage() {
       const storeId = stores[0].id
       
       const response = await fetch(`${API_URL}/api/onboarding/workflow-status/${storeId}`, {
-        headers: { 'Authorization': `Bearer ${session.access_token}` },
+        headers: { 'Authorization': `Bearer ${token}` },
       })
 
       if (response.ok) {
@@ -362,14 +365,14 @@ export default function AIAgentPage() {
 
   async function loadContext() {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
+      const token = authToken || session?.access_token
+      if (!token) {
         setLoadingContext(false)
         return
       }
 
       const response = await fetch(`${API_URL}/api/ai-chat/context`, {
-        headers: { 'Authorization': `Bearer ${session.access_token}` },
+        headers: { 'Authorization': `Bearer ${token}` },
       })
 
       if (response.ok) {
@@ -385,14 +388,14 @@ export default function AIAgentPage() {
 
   async function loadBudget() {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
+      const token = authToken || session?.access_token
+      if (!token) {
         setLoadingBudget(false)
         return
       }
 
       const response = await fetch(`${API_URL}/api/budget/status`, {
-        headers: { 'Authorization': `Bearer ${session.access_token}` },
+        headers: { 'Authorization': `Bearer ${token}` },
       })
 
       if (response.ok) {
@@ -408,11 +411,11 @@ export default function AIAgentPage() {
 
   async function loadAIConfig() {
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
+      const token = authToken || session?.access_token
+      if (!token) return
 
       const response = await fetch(`${API_URL}/api/ai/config`, {
-        headers: { 'Authorization': `Bearer ${session.access_token}` },
+        headers: { 'Authorization': `Bearer ${token}` },
       })
 
       if (response.ok) {
@@ -436,7 +439,8 @@ export default function AIAgentPage() {
     setAiConfigError('')
 
     try {
-      if (!session) {
+      const token = authToken || session?.access_token
+      if (!token) {
         setAiConfigError('Session not available. Please refresh the page.')
         console.error('[AI Config] No session available')
         return
@@ -446,7 +450,7 @@ export default function AIAgentPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           provider: selectedProvider,
@@ -517,8 +521,8 @@ Next, I need to learn about your store to provide personalized assistance. Let's
 
     // Fallback to HTTP API
     try {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) {
+      const token = authToken || session?.access_token
+      if (!token) {
         setMessages([...newMessages, { 
           role: 'assistant', 
           content: 'Please sign in to use the AI assistant.' 
@@ -535,7 +539,7 @@ Next, I need to learn about your store to provide personalized assistance. Let's
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           message: userMessage,
@@ -652,7 +656,8 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                       setSavingAIConfig(true)
                       setAiConfigError('')
                       try {
-                        if (!session) {
+                        const token = authToken || session?.access_token
+                        if (!token) {
                           setAiConfigError('Session not available. Please refresh the page.')
                           return
                         }
@@ -660,7 +665,7 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                           method: 'POST',
                           headers: {
                             'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${session.access_token}`,
+                            'Authorization': `Bearer ${token}`,
                           },
                           body: JSON.stringify({
                             provider: 'openrouter',
@@ -1239,11 +1244,11 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                   className="w-full mt-2 text-yellow-400 border-yellow-500/30 hover:bg-yellow-500/10"
                   onClick={async () => {
                     setRetryCount(c => c + 1)
-                    const { data: { session } } = await supabase.auth.getSession()
-                    if (session) {
+                    const token = authToken || session?.access_token
+                    if (token) {
                       fetch(`${API_URL}/api/workers/${activeWorker.id}/reprovision`, {
                         method: 'POST',
-                        headers: { 'Authorization': `Bearer ${session.access_token}` }
+                        headers: { 'Authorization': `Bearer ${token}` }
                       })
                     }
                   }}
