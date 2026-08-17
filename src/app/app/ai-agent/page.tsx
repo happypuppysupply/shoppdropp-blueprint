@@ -210,7 +210,17 @@ export default function AIAgentPage() {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) return
 
-      const wsUrl = `${API_URL.replace('https://', 'wss://').replace('http://', 'ws://')}/ws/ai-chat?token=${session.access_token}`
+      // Use worker's gateway if available, otherwise fallback to backend
+      let wsUrl: string
+      if (activeWorker?.ip && activeWorker.status === 'running') {
+        // Connect directly to worker's OpenClaw gateway
+        wsUrl = `ws://${activeWorker.ip}:3001/ws?token=${session.access_token}`
+        console.log('[AI-WS] Connecting to worker gateway:', wsUrl)
+      } else {
+        // Fallback to backend WebSocket
+        wsUrl = `${API_URL.replace('https://', 'wss://').replace('http://', 'ws://')}/ws/ai-chat?token=${session.access_token}`
+        console.log('[AI-WS] Connecting to backend:', wsUrl)
+      }
       
       const ws = new WebSocket(wsUrl)
       
