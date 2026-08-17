@@ -13,6 +13,7 @@ import { getSupabaseClient } from "@/lib/supabase-client";
 
 interface AuthContextType {
   user: User | null;
+  session: Session | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   signInWithEmail: (email: string, password: string) => Promise<{ error: AuthError | null }>;
@@ -30,6 +31,7 @@ interface AuthProviderProps {
 
 export function AuthProvider({ children }: AuthProviderProps) {
   const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const supabaseRef = useRef<SupabaseClient | null>(null);
 
@@ -45,8 +47,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     // Check active sessions
     const getUser = async () => {
-      const { data: { user } } = await supabaseRef.current!.auth.getUser();
-      setUser(user);
+      const { data: { session } } = await supabaseRef.current!.auth.getSession();
+      setSession(session);
+      setUser(session?.user ?? null);
       setIsLoading(false);
     };
 
@@ -54,8 +57,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     // Listen for auth state changes
     const { data: listener } = supabaseRef.current.auth.onAuthStateChange(
-      async (_event: string, session: Session | null) => {
-        setUser(session?.user ?? null);
+      async (_event: string, newSession: Session | null) => {
+        setSession(newSession);
+        setUser(newSession?.user ?? null);
         setIsLoading(false);
       }
     );
@@ -131,6 +135,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const value: AuthContextType = {
     user,
+    session,
     isLoading,
     isAuthenticated: !!user,
     signInWithEmail,
