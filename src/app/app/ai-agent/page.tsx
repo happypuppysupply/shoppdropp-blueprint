@@ -115,6 +115,11 @@ export default function AIAgentPage() {
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [hasGreeted, setHasGreeted] = useState(false)
   
+  // Worker & Provisioning state
+  const [workerStatus, setWorkerStatus] = useState<'loading' | 'provisioning' | 'running' | 'error' | 'none'>('loading')
+  const [provisionError, setProvisionError] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
+  
   // WebSocket refs
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const wsRef = useRef<WebSocket | null>(null)
@@ -887,6 +892,60 @@ Next, I need to learn about your store to provide personalized assistance. Let's
     )
   }
 
+  // Loading Skeleton
+  if (loadingContext || loadingWorkflow) {
+    return (
+      <div className="flex h-[calc(100vh-4rem)] gap-4">
+        {/* LEFT - Loading Skeleton */}
+        <div className="flex-1 flex flex-col min-w-0">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 bg-white/10 rounded-xl animate-pulse" />
+            <div className="space-y-2">
+              <div className="w-32 h-6 bg-white/10 rounded animate-pulse" />
+              <div className="w-48 h-4 bg-white/10 rounded animate-pulse" />
+            </div>
+          </div>
+          
+          <Card className="bg-[#111118] border-white/10 flex-1">
+            <CardContent className="p-6 space-y-6">
+              <div className="flex gap-3">
+                <div className="w-8 h-8 bg-white/10 rounded-full animate-pulse" />
+                <div className="flex-1 space-y-2">
+                  <div className="w-3/4 h-4 bg-white/10 rounded animate-pulse" />
+                  <div className="w-1/2 h-4 bg-white/10 rounded animate-pulse" />
+                </div>
+              </div>
+              <div className="flex gap-3 flex-row-reverse">
+                <div className="w-8 h-8 bg-white/10 rounded-full animate-pulse" />
+                <div className="w-2/3 h-4 bg-white/10 rounded animate-pulse" />
+              </div>
+              <div className="flex gap-3">
+                <div className="w-8 h-8 bg-white/10 rounded-full animate-pulse" />
+                <div className="flex-1 space-y-2">
+                  <div className="w-full h-4 bg-white/10 rounded animate-pulse" />
+                  <div className="w-3/4 h-4 bg-white/10 rounded animate-pulse" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* RIGHT - Loading Skeleton */}
+        <div className="w-80 flex-shrink-0 space-y-4">
+          <Card className="bg-[#111118] border-white/10">
+            <CardHeader className="pb-3">
+              <div className="w-24 h-4 bg-white/10 rounded animate-pulse" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="w-full h-8 bg-white/10 rounded animate-pulse" />
+              <div className="w-full h-8 bg-white/10 rounded animate-pulse" />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="flex h-[calc(100vh-4rem)] gap-4">
       {/* LEFT MAIN - Chat Interface */}
@@ -1139,7 +1198,7 @@ Next, I need to learn about your store to provide personalized assistance. Let's
         </Card>
 
         {/* Worker Status */}
-        {activeWorker && (
+        {activeWorker ? (
           <Card className="bg-[#111118] border-white/10">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center gap-2 text-slate-400">
@@ -1151,6 +1210,7 @@ Next, I need to learn about your store to provide personalized assistance. Let's
               <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-400">Status</span>
                 <Badge className={getStatusColor(activeWorker.status)}>
+                  {activeWorker.status === 'provisioning' && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
                   {activeWorker.status}
                 </Badge>
               </div>
@@ -1160,9 +1220,49 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                   <span className="text-sm text-white font-mono text-xs">{activeWorker.ip}</span>
                 </div>
               )}
+              {activeWorker.status === 'error' && (
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  className="w-full mt-2 text-yellow-400 border-yellow-500/30 hover:bg-yellow-500/10"
+                  onClick={async () => {
+                    setRetryCount(c => c + 1)
+                    const { data: { session } } = await supabase.auth.getSession()
+                    if (session) {
+                      fetch(`${API_URL}/api/workers/${activeWorker.id}/reprovision`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${session.access_token}` }
+                      })
+                    }
+                  }}
+                >
+                  <Loader2 className="w-4 h-4 mr-2" />
+                  Retry Provisioning
+                </Button>
+              )}
             </CardContent>
           </Card>
-        )}
+        ) : context && !context.workers?.length ? (
+          <Card className="bg-[#111118] border-white/10">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2 text-slate-400">
+                <Server className="w-4 h-4 text-blue-400" />
+                Worker
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <p className="text-sm text-slate-400">No worker provisioned</p>
+              <Button 
+                size="sm" 
+                className="w-full bg-blue-600 hover:bg-blue-500"
+                onClick={() => setInput('provision a vps worker')}
+              >
+                <Rocket className="w-4 h-4 mr-2" />
+                Provision Worker
+              </Button>
+            </CardContent>
+          </Card>
+        ) : null}
 
         {/* Store Info */}
         {activeStore && (
