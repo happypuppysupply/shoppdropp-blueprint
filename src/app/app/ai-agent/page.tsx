@@ -9,7 +9,8 @@ import { Separator } from '@/components/ui/separator'
 import { 
   Bot, Send, Sparkles, Server, Store, AlertCircle, CheckCircle2, 
   Loader2, Wallet, TrendingUp, Settings, Activity, Zap, 
-  Shield, CreditCard, ChevronRight, Rocket, LayoutTemplate, Brain, X, AlertTriangle
+  Shield, CreditCard, ChevronRight, Rocket, LayoutTemplate, Brain, X, AlertTriangle,
+  CheckSquare, Square
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
@@ -20,6 +21,13 @@ interface Message {
   content: string
   command_result?: any
   isStreaming?: boolean
+  interactive?: {
+    type: 'multiselect' | 'select' | 'text'
+    question: string
+    options?: { id: string; label: string; description?: string }[]
+    allowMultiple?: boolean
+    placeholder?: string
+  }
 }
 
 interface ContextData {
@@ -93,6 +101,82 @@ const AI_PROVIDERS = [
 ]
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://shoppdropp-api.onrender.com'
+
+// Animated thinking dots component
+function ThinkingDots() {
+  return (
+    <div className="flex items-center gap-1 px-1">
+      <div className="w-2 h-2 rounded-full bg-pink-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+      <div className="w-2 h-2 rounded-full bg-pink-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+      <div className="w-2 h-2 rounded-full bg-pink-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+    </div>
+  )
+}
+
+// Component for interactive multi-select questions
+function InteractiveQuestion({ 
+  question, 
+  options, 
+  allowMultiple = false,
+  onSubmit 
+}: { 
+  question: string
+  options: { id: string; label: string; description?: string }[]
+  allowMultiple?: boolean
+  onSubmit: (selected: string | string[]) => void
+}) {
+  const [selected, setSelected] = useState<string[]>([])
+
+  const toggleOption = (id: string) => {
+    if (allowMultiple) {
+      setSelected(prev => 
+        prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+      )
+    } else {
+      setSelected([id])
+    }
+  }
+
+  return (
+    <div className="bg-gradient-to-br from-violet-500/10 to-pink-500/10 border border-violet-500/20 p-4 rounded-2xl my-2">
+      <p className="text-white font-medium mb-3">{question}</p>
+      <div className="space-y-2">
+        {options.map(option => (
+          <button
+            key={option.id}
+            onClick={() => toggleOption(option.id)}
+            className={`w-full flex items-start gap-3 p-3 rounded-xl border transition-all text-left ${
+              selected.includes(option.id)
+                ? 'bg-violet-500/20 border-violet-500/50'
+                : 'bg-white/5 border-white/10 hover:bg-white/10'
+            }`}
+          >
+            <div className="mt-0.5">
+              {selected.includes(option.id) ? (
+                <CheckSquare className="w-5 h-5 text-violet-400" />
+              ) : (
+                <Square className="w-5 h-5 text-slate-500" />
+              )}
+            </div>
+            <div className="flex-1">
+              <p className="text-white text-sm font-medium">{option.label}</p>
+              {option.description && (
+                <p className="text-slate-400 text-xs mt-0.5">{option.description}</p>
+              )}
+            </div>
+          </button>
+        ))}
+      </div>
+      <button
+        onClick={() => onSubmit(allowMultiple ? selected : selected[0])}
+        disabled={selected.length === 0}
+        className="mt-4 w-full py-2.5 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl font-medium transition-colors"
+      >
+        {allowMultiple ? `Send ${selected.length} selected` : 'Confirm'}
+      </button>
+    </div>
+  )
+}
 
 // Version: 2026-08-17-002 - Auth fix
 export default function AIAgentPage() {
@@ -1019,6 +1103,74 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                   </div>
                 </div>
                 
+                {/* Interactive question component */}
+                {msg.interactive && msg.role === 'assistant' && (
+                  <div className="flex gap-3">
+                    <div className="w-8" />
+                    <div className="max-w-[80%] flex-1">
+                      <InteractiveQuestion
+                        question={msg.interactive.question}
+                        options={msg.interactive.options || []}
+                        allowMultiple={msg.interactive.allowMultiple || msg.interactive.type === 'multiselect'}
+                        onSubmit={(selected) => {
+                          const selectedText = Array.isArray(selected) 
+                            ? selected.join(', ') 
+                            : selected
+                          // Send the selection as a user message
+                          const selectionMessage = `Selected: ${selectedText}`
+                          setMessages(prev => [...prev, { role: 'user', content: selectionMessage }])
+                          // Process the selection through the API
+                          const token = authToken || session?.access_token
+                          if (token && wsRef.current?.readyState === WebSocket.OPEN) {
+                            const conversationHistory = [...messages, { 
+                              role: 'user', 
+                              content: selectionMessage 
+                            }]
+                              .filter(m => m.role === 'user' || m.role === 'assistant')
+                              .slice(-10)
+                              .map(m => ({ role: m.role, content: m.content }))
+                            
+                            wsRef.current.send(JSON.stringify({
+                              type: 'chat',
+                              content: selectionMessage,
+                              conversation_history: conversationHistory,
+                            }))
+                            setLoading(true)
+                          } else if (token) {
+                            // HTTP fallback
+                            fetch(`${API_URL}/api/ai-chat/chat`, {
+                              method: 'POST',
+                              headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`,
+                              },
+                              body: JSON.stringify({
+                                message: selectionMessage,
+                                conversation_history: messages
+                                  .filter(m => m.role === 'user' || m.role === 'assistant')
+                                  .slice(-10)
+                                  .map(m => ({ role: m.role, content: m.content })),
+                              }),
+                            }).then(async (res) => {
+                              const data = await res.json()
+                              setMessages(prev => [...prev, { 
+                                role: 'assistant', 
+                                content: data.response 
+                              }])
+                            }).catch(err => {
+                              setMessages(prev => [...prev, { 
+                                role: 'assistant', 
+                                content: 'Error processing your selection. Please try again.' 
+                              }])
+                            })
+                            setLoading(true)
+                          }
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+                
                 {msg.command_result && (
                   <div className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
                     <div className="w-8" />
@@ -1050,6 +1202,19 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                 )}
               </div>
             ))}
+            
+            {/* Thinking indicator - shows when AI is processing */}
+            {loading && (
+              <div className="flex gap-3">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-pink-500/20">
+                  <Bot className="w-4 h-4 text-pink-400" />
+                </div>
+                <div className="max-w-[80%] p-3 rounded-lg bg-white/5 text-slate-200">
+                  <ThinkingDots />
+                </div>
+              </div>
+            )}
+            
             <div ref={messagesEndRef} />
           </CardContent>
           
