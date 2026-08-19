@@ -1380,72 +1380,64 @@ Next, I need to learn about your store to provide personalized assistance. Let's
           </CardContent>
         </Card>
 
-        {/* Worker Status */}
-        {activeWorker ? (
-          <Card className="bg-[#111118] border-white/10">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm flex items-center gap-2 text-slate-400">
-                <Server className="w-4 h-4 text-blue-400" />
-                Worker
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-400">Status</span>
-                <Badge className={getStatusColor(activeWorker.status)}>
-                  {activeWorker.status === 'provisioning' && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
-                  {activeWorker.status}
-                </Badge>
-              </div>
-              {activeWorker.ip && (
+        {/* Worker Status - Always show */}
+        <Card className="bg-[#111118] border-white/10">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2 text-slate-400">
+              <Server className="w-4 h-4 text-blue-400" />
+              Worker
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {activeWorker ? (
+              <>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-slate-400">IP</span>
-                  <span className="text-sm text-white font-mono text-xs">{activeWorker.ip}</span>
+                  <span className="text-sm text-slate-400">Status</span>
+                  <Badge className={getStatusColor(activeWorker.status)}>
+                    {activeWorker.status === 'provisioning' && <Loader2 className="w-3 h-3 mr-1 animate-spin" />}
+                    {activeWorker.status}
+                  </Badge>
                 </div>
-              )}
-              {activeWorker.status === 'error' && (
+                {activeWorker.ip && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-400">IP</span>
+                    <span className="text-sm text-white font-mono text-xs">{activeWorker.ip}</span>
+                  </div>
+                )}
+                <div className="flex gap-2 mt-3">
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    className="flex-1 text-xs border-amber-500/50 text-amber-400 hover:bg-amber-500/10"
+                    onClick={async () => {
+                      const token = authToken || session?.access_token
+                      if (token && confirm('This will destroy the current VPS and create a new one. Continue?')) {
+                        fetch(`${API_URL}/api/workers/${activeWorker.id}/reprovision`, {
+                          method: 'POST',
+                          headers: { 'Authorization': `Bearer ${token}` }
+                        })
+                      }
+                    }}
+                  >
+                    Reprovision
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-slate-400">No worker provisioned</p>
                 <Button 
                   size="sm" 
-                  variant="outline"
-                  className="w-full mt-2 text-yellow-400 border-yellow-500/30 hover:bg-yellow-500/10"
-                  onClick={async () => {
-                    setRetryCount(c => c + 1)
-                    const token = authToken || session?.access_token
-                    if (token) {
-                      fetch(`${API_URL}/api/workers/${activeWorker.id}/reprovision`, {
-                        method: 'POST',
-                        headers: { 'Authorization': `Bearer ${token}` }
-                      })
-                    }
-                  }}
+                  className="w-full bg-blue-600 hover:bg-blue-500"
+                  onClick={() => setInput('provision a vps worker')}
                 >
-                  <Loader2 className="w-4 h-4 mr-2" />
-                  Retry Provisioning
+                  <Rocket className="w-4 h-4 mr-2" />
+                  Provision Worker
                 </Button>
-              )}
-            </CardContent>
-          </Card>
-        ) : context && !context.workers?.length ? (
-          <Card className="bg-[#111118] border-white/10">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm flex items-center gap-2 text-slate-400">
-                <Server className="w-4 h-4 text-blue-400" />
-                Worker
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <p className="text-sm text-slate-400">No worker provisioned</p>
-              <Button 
-                size="sm" 
-                className="w-full bg-blue-600 hover:bg-blue-500"
-                onClick={() => setInput('provision a vps worker')}
-              >
-                <Rocket className="w-4 h-4 mr-2" />
-                Provision Worker
-              </Button>
-            </CardContent>
-          </Card>
-        ) : null}
+              </>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Store Info */}
         {activeStore && (
