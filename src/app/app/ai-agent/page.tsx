@@ -113,17 +113,43 @@ function ThinkingDots() {
   )
 }
 
+// Parse [[FORM]] blocks from AI message content
+function parseFormBlocks(content: string): { text: string; forms: Array<{type: string; options: string[]; question?: string}> } {
+  const forms: Array<{type: string; options: string[]; question?: string}> = []
+  
+  // Match [[FORM type="..." options="..."]] or [[FORM type='...' options='...']]
+  const formRegex = /\[\[FORM\s+type=["']([^"']+)["']\s+options=["']([^"']+)["']\s*\]\]/gi
+  
+  let cleanedText = content
+  let match
+  
+  while ((match = formRegex.exec(content)) !== null) {
+    const type = match[1]
+    const optionsStr = match[2]
+    // Split options by pipe character
+    const options = optionsStr.split('|').map(o => o.trim()).filter(Boolean)
+    
+    forms.push({ type, options })
+    // Remove the form block from the text
+    cleanedText = cleanedText.replace(match[0], '').trim()
+  }
+  
+  return { text: cleanedText, forms }
+}
+
 // Component for interactive multi-select questions
 function InteractiveQuestion({ 
   question, 
   options, 
   allowMultiple = false,
-  onSubmit 
+  onSubmit,
+  variant = 'default'
 }: { 
-  question: string
-  options: { id: string; label: string; description?: string }[]
+  question?: string
+  options: { id: string; label: string; description?: string }[] | string[]
   allowMultiple?: boolean
   onSubmit: (selected: string | string[]) => void
+  variant?: 'default' | 'cards' | 'chips'
 }) {
   const [selected, setSelected] = useState<string[]>([])
 
@@ -134,14 +160,85 @@ function InteractiveQuestion({
       )
     } else {
       setSelected([id])
+      // Auto-submit on single selection
+      if (!allowMultiple) {
+        onSubmit(id)
+      }
     }
+  }
+
+  // Normalize options to object format
+  const normalizedOptions = options.map(opt => 
+    typeof opt === 'string' ? { id: opt, label: opt, description: '' } : opt
+  )
+
+  if (variant === 'cards') {
+    return (
+      <div className="bg-gradient-to-br from-violet-500/10 to-pink-500/10 border border-violet-500/20 p-4 rounded-2xl my-2">
+        {question && <p className="text-white font-medium mb-3">{question}</p>}
+        <div className="grid grid-cols-2 gap-2">
+          {normalizedOptions.map(option => (
+            <button
+              key={option.id}
+              onClick={() => toggleOption(option.id)}
+              className={`p-3 rounded-xl border transition-all text-left ${
+                selected.includes(option.id)
+                  ? 'bg-violet-500/30 border-violet-500'
+                  : 'bg-white/5 border-white/10 hover:bg-white/10'
+              }`}
+            >
+              <p className="text-white text-sm font-medium">{option.label}</p>
+            </button>
+          ))}
+        </div>
+        {allowMultiple && selected.length > 0 && (
+          <button
+            onClick={() => onSubmit(selected)}
+            className="mt-4 w-full py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-medium transition-colors"
+          >
+            Confirm ({selected.length} selected)
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  if (variant === 'chips') {
+    return (
+      <div className="bg-gradient-to-br from-violet-500/10 to-pink-500/10 border border-violet-500/20 p-4 rounded-2xl my-2">
+        {question && <p className="text-white font-medium mb-3">{question}</p>}
+        <div className="flex flex-wrap gap-2">
+          {normalizedOptions.map(option => (
+            <button
+              key={option.id}
+              onClick={() => toggleOption(option.id)}
+              className={`px-3 py-1.5 rounded-full text-sm border transition-all ${
+                selected.includes(option.id)
+                  ? 'bg-violet-500/30 border-violet-500 text-white'
+                  : 'bg-white/5 border-white/10 text-slate-300 hover:bg-white/10'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+        {allowMultiple && selected.length > 0 && (
+          <button
+            onClick={() => onSubmit(selected)}
+            className="mt-4 w-full py-2.5 bg-violet-600 hover:bg-violet-500 text-white rounded-xl font-medium transition-colors"
+          >
+            Confirm ({selected.length} selected)
+          </button>
+        )}
+      </div>
+    )
   }
 
   return (
     <div className="bg-gradient-to-br from-violet-500/10 to-pink-500/10 border border-violet-500/20 p-4 rounded-2xl my-2">
-      <p className="text-white font-medium mb-3">{question}</p>
+      {question && <p className="text-white font-medium mb-3">{question}</p>}
       <div className="space-y-2">
-        {options.map(option => (
+        {normalizedOptions.map(option => (
           <button
             key={option.id}
             onClick={() => toggleOption(option.id)}
@@ -1075,101 +1172,178 @@ Next, I need to learn about your store to provide personalized assistance. Let's
         {/* Chat Card */}
         <Card className="bg-[#111118] border-white/10 flex flex-col flex-1 min-h-0">
           <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
-            {messages.map((msg, i) => (
-              <div key={i} className="space-y-2">
-                <div className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-                      msg.role === 'user' ? 'bg-violet-500/20' : 'bg-pink-500/20'
-                    }`}
-                  >
-                    {msg.role === 'user' ? (
-                      <span className="text-xs text-violet-300">You</span>
-                    ) : (
-                      <Bot className="w-4 h-4 text-pink-400" />
-                    )}
-                  </div>
-                  <div
-                    className={`max-w-[80%] p-3 rounded-lg whitespace-pre-wrap ${
-                      msg.role === 'user'
-                        ? 'bg-violet-500/20 text-white'
-                        : 'bg-white/5 text-slate-200'
-                    }`}
-                  >
-                    {msg.content}
-                    {msg.isStreaming && (
-                      <span className="inline-block w-2 h-4 ml-1 bg-pink-400 animate-pulse" />
-                    )}
-                  </div>
-                </div>
-                
-                {/* Interactive question component */}
-                {msg.interactive && msg.role === 'assistant' && (
-                  <div className="flex gap-3">
-                    <div className="w-8" />
-                    <div className="max-w-[80%] flex-1">
-                      <InteractiveQuestion
-                        question={msg.interactive.question}
-                        options={msg.interactive.options || []}
-                        allowMultiple={msg.interactive.allowMultiple || msg.interactive.type === 'multiselect'}
-                        onSubmit={(selected) => {
-                          const selectedText = Array.isArray(selected) 
-                            ? selected.join(', ') 
-                            : selected
-                          // Send the selection as a user message
-                          const selectionMessage = `Selected: ${selectedText}`
-                          setMessages(prev => [...prev, { role: 'user', content: selectionMessage }])
-                          // Process the selection through the API
-                          const token = authToken || session?.access_token
-                          if (token && wsRef.current?.readyState === WebSocket.OPEN) {
-                            const conversationHistory = [...messages, { 
-                              role: 'user', 
-                              content: selectionMessage 
-                            }]
-                              .filter(m => m.role === 'user' || m.role === 'assistant')
-                              .slice(-10)
-                              .map(m => ({ role: m.role, content: m.content }))
-                            
-                            wsRef.current.send(JSON.stringify({
-                              type: 'chat',
-                              content: selectionMessage,
-                              conversation_history: conversationHistory,
-                            }))
-                            setLoading(true)
-                          } else if (token) {
-                            // HTTP fallback
-                            fetch(`${API_URL}/api/ai-chat/chat`, {
-                              method: 'POST',
-                              headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`,
-                              },
-                              body: JSON.stringify({
-                                message: selectionMessage,
-                                conversation_history: messages
-                                  .filter(m => m.role === 'user' || m.role === 'assistant')
-                                  .slice(-10)
-                                  .map(m => ({ role: m.role, content: m.content })),
-                              }),
-                            }).then(async (res) => {
-                              const data = await res.json()
-                              setMessages(prev => [...prev, { 
-                                role: 'assistant', 
-                                content: data.response 
-                              }])
-                            }).catch(err => {
-                              setMessages(prev => [...prev, { 
-                                role: 'assistant', 
-                                content: 'Error processing your selection. Please try again.' 
-                              }])
-                            })
-                            setLoading(true)
-                          }
-                        }}
-                      />
+            {messages.map((msg, i) => {
+              // Parse form blocks from assistant messages
+              const { text: cleanedContent, forms } = msg.role === 'assistant' 
+                ? parseFormBlocks(msg.content)
+                : { text: msg.content, forms: [] }
+              
+              return (
+                <div key={i} className="space-y-2">
+                  <div className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                        msg.role === 'user' ? 'bg-violet-500/20' : 'bg-pink-500/20'
+                      }`}
+                    >
+                      {msg.role === 'user' ? (
+                        <span className="text-xs text-violet-300">You</span>
+                      ) : (
+                        <Bot className="w-4 h-4 text-pink-400" />
+                      )}
+                    </div>
+                    <div
+                      className={`max-w-[80%] p-3 rounded-lg whitespace-pre-wrap ${
+                        msg.role === 'user'
+                          ? 'bg-violet-500/20 text-white'
+                          : 'bg-white/5 text-slate-200'
+                      }`}
+                    >
+                      {cleanedContent}
+                      {msg.isStreaming && (
+                        <span className="inline-block w-2 h-4 ml-1 bg-pink-400 animate-pulse" />
+                      )}
                     </div>
                   </div>
-                )}
+                  
+                  {/* Render parsed FORM blocks as interactive questions */}
+                  {forms.length > 0 && msg.role === 'assistant' && (
+                    <div className="flex gap-3">
+                      <div className="w-8" />
+                      <div className="max-w-[80%] flex-1 space-y-2">
+                        {forms.map((form, formIdx) => (
+                          <InteractiveQuestion
+                            key={formIdx}
+                            options={form.options}
+                            allowMultiple={false}
+                            variant={form.type === 'cards' ? 'cards' : form.type === 'chips' ? 'chips' : 'default'}
+                            onSubmit={(selected) => {
+                              const selectedText = Array.isArray(selected) 
+                                ? selected.join(', ') 
+                                : selected
+                              // Send the selection as a user message
+                              const selectionMessage = `Selected: ${selectedText}`
+                              setMessages(prev => [...prev, { role: 'user', content: selectionMessage }])
+                              // Process the selection through the API
+                              const token = authToken || session?.access_token
+                              if (token && wsRef.current?.readyState === WebSocket.OPEN) {
+                                const conversationHistory = [...messages, { 
+                                  role: 'user', 
+                                  content: selectionMessage 
+                                }]
+                                  .filter(m => m.role === 'user' || m.role === 'assistant')
+                                  .slice(-10)
+                                  .map(m => ({ role: m.role, content: m.content }))
+                                
+                                wsRef.current.send(JSON.stringify({
+                                  type: 'chat',
+                                  content: selectionMessage,
+                                  conversation_history: conversationHistory,
+                                }))
+                                setLoading(true)
+                              } else if (token) {
+                                // HTTP fallback
+                                fetch(`${API_URL}/api/ai-chat/chat`, {
+                                  method: 'POST',
+                                  headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${token}`,
+                                  },
+                                  body: JSON.stringify({
+                                    message: selectionMessage,
+                                    conversation_history: messages
+                                      .filter(m => m.role === 'user' || m.role === 'assistant')
+                                      .slice(-10)
+                                      .map(m => ({ role: m.role, content: m.content })),
+                                  }),
+                                }).then(async (res) => {
+                                  const data = await res.json()
+                                  setMessages(prev => [...prev, { 
+                                    role: 'assistant', 
+                                    content: data.response 
+                                  }])
+                                }).catch(err => {
+                                  setMessages(prev => [...prev, { 
+                                    role: 'assistant', 
+                                    content: 'Error processing your selection. Please try again.' 
+                                  }])
+                                })
+                                setLoading(true)
+                              }
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Interactive question component (legacy format) */}
+                  {msg.interactive && msg.role === 'assistant' && (
+                    <div className="flex gap-3">
+                      <div className="w-8" />
+                      <div className="max-w-[80%] flex-1">
+                        <InteractiveQuestion
+                          question={msg.interactive.question}
+                          options={msg.interactive.options || []}
+                          allowMultiple={msg.interactive.allowMultiple || msg.interactive.type === 'multiselect'}
+                          onSubmit={(selected) => {
+                            const selectedText = Array.isArray(selected) 
+                              ? selected.join(', ') 
+                              : selected
+                            // Send the selection as a user message
+                            const selectionMessage = `Selected: ${selectedText}`
+                            setMessages(prev => [...prev, { role: 'user', content: selectionMessage }])
+                            // Process the selection through the API
+                            const token = authToken || session?.access_token
+                            if (token && wsRef.current?.readyState === WebSocket.OPEN) {
+                              const conversationHistory = [...messages, { 
+                                role: 'user', 
+                                content: selectionMessage 
+                              }]
+                                .filter(m => m.role === 'user' || m.role === 'assistant')
+                                .slice(-10)
+                                .map(m => ({ role: m.role, content: m.content }))
+                              
+                              wsRef.current.send(JSON.stringify({
+                                type: 'chat',
+                                content: selectionMessage,
+                                conversation_history: conversationHistory,
+                              }))
+                              setLoading(true)
+                            } else if (token) {
+                              // HTTP fallback
+                              fetch(`${API_URL}/api/ai-chat/chat`, {
+                                method: 'POST',
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                  'Authorization': `Bearer ${token}`,
+                                },
+                                body: JSON.stringify({
+                                  message: selectionMessage,
+                                  conversation_history: messages
+                                    .filter(m => m.role === 'user' || m.role === 'assistant')
+                                    .slice(-10)
+                                    .map(m => ({ role: m.role, content: m.content })),
+                                }),
+                              }).then(async (res) => {
+                                const data = await res.json()
+                                setMessages(prev => [...prev, { 
+                                  role: 'assistant', 
+                                  content: data.response 
+                                }])
+                              }).catch(err => {
+                                setMessages(prev => [...prev, { 
+                                  role: 'assistant', 
+                                  content: 'Error processing your selection. Please try again.' 
+                                }])
+                              })
+                              setLoading(true)
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
                 
                 {msg.command_result && (
                   <div className={`flex gap-3 ${msg.role === 'user' ? 'flex-row-reverse' : ''}`}>
@@ -1201,7 +1375,7 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                   </div>
                 )}
               </div>
-            ))}
+            ))})}
             
             {/* Thinking indicator - shows when AI is processing */}
             {loading && (
