@@ -199,6 +199,56 @@ function parseFormBlocks(content: string): {
   return { text: cleanedText, forms }
 }
 
+// Parse [[ACTIVITY]] blocks for activity logs
+function parseActivityBlocks(content: string): { text: string; activities: Array<{message: string; timestamp?: string; status: 'pending' | 'success' | 'error'}> } {
+  const activities: Array<{message: string; timestamp?: string; status: 'pending' | 'success' | 'error'}> = []
+  
+  // Match [[ACTIVITY]] ... [[/ACTIVITY]] blocks
+  const activityRegex = /\[\[ACTIVITY\]\]([\s\S]*?)\[\[\/ACTIVITY\]\]/gi
+  
+  let cleanedText = content
+  let match
+  
+  while ((match = activityRegex.exec(content)) !== null) {
+    const activityText = match[1].trim()
+    
+    // Parse each line as an activity entry
+    const lines = activityText.split('\n').filter(line => line.trim())
+    
+    lines.forEach(line => {
+      const trimmedLine = line.trim()
+      if (!trimmedLine) return
+      
+      // Check for status indicators
+      let status: 'pending' | 'success' | 'error' = 'pending'
+      if (trimmedLine.includes('✓') || trimmedLine.includes('✅') || trimmedLine.includes('connected') || trimmedLine.includes('success')) {
+        status = 'success'
+      } else if (trimmedLine.includes('✗') || trimmedLine.includes('error') || trimmedLine.includes('failed')) {
+        status = 'error'
+      }
+      
+      // Extract timestamp if present (format: HH:MM:SS)
+      const timeMatch = trimmedLine.match(/(\d{2}:\d{2}:\d{2})/)
+      const timestamp = timeMatch ? timeMatch[1] : undefined
+      
+      // Clean up the message
+      let message = trimmedLine
+        .replace(/^(⏳|✓|✅|✗|🔐|📝)/, '')
+        .replace(/^\d{2}:\d{2}:\d{2}\s*-?\s*/, '')
+        .trim()
+      
+      if (message) {
+        activities.push({ message, timestamp, status })
+      }
+    })
+    
+    // Remove the activity block from the text
+    cleanedText = cleanedText.replace(match[0], '').trim()
+  }
+  
+  return { text: cleanedText, activities }
+}
+
 // Component for interactive multi-select questions
 function InteractiveQuestion({ 
   question, 
@@ -1264,10 +1314,14 @@ Next, I need to learn about your store to provide personalized assistance. Let's
         <Card className="bg-[#111118] border-white/10 flex flex-col flex-1 min-h-0">
           <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
             {messages.map((msg, i) => {
-              // Parse form blocks from assistant messages
-              const { text: cleanedContent, forms } = msg.role === 'assistant' 
+              // Parse form and activity blocks from assistant messages
+              const { text: contentAfterForms, forms } = msg.role === 'assistant' 
                 ? parseFormBlocks(msg.content)
                 : { text: msg.content, forms: [] }
+              
+              const { text: cleanedContent, activities } = msg.role === 'assistant'
+                ? parseActivityBlocks(contentAfterForms)
+                : { text: contentAfterForms, activities: [] }
               
               return (
                 <div key={i} className="space-y-2">
@@ -1296,6 +1350,40 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                       )}
                     </div>
                   </div>
+                  
+                  {/* Render ACTIVITY blocks */}
+                  {activities.length > 0 && msg.role === 'assistant' && (
+                    <div className="flex gap-3 mt-2">
+                      <div className="w-8" />
+                      <div className="max-w-[80%] flex-1">
+                        <div className="bg-[#0d1117] border border-green-500/30 rounded-lg p-4 space-y-2">
+                          <div className="flex items-center gap-2 text-green-400 text-sm font-medium mb-3">
+                            <Activity className="w-4 h-4" />
+                            Platform Connections
+                          </div>
+                          {activities.map((activity, idx) => (
+                            <div key={idx} className="flex items-center gap-2 text-sm">
+                              {activity.status === 'success' ? (
+                                <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
+                              ) : activity.status === 'error' ? (
+                                <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0" />
+                              ) : (
+                                <Loader2 className="w-4 h-4 text-yellow-400 flex-shrink-0 animate-spin" />
+                              )}
+                              {activity.timestamp && (
+                                <span className="text-slate-500 text-xs font-mono">{activity.timestamp}</span>
+                              )}
+                              <span className={
+                                activity.status === 'success' ? 'text-slate-300' :
+                                activity.status === 'error' ? 'text-red-300' :
+                                'text-slate-400'
+                              }>{activity.message}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                   
                   {/* Render parsed FORM blocks as interactive questions */}
                   {forms.length > 0 && msg.role === 'assistant' && (
