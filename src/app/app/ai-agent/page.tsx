@@ -1401,7 +1401,7 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                   </div>
                 )}
               </div>
-            ))})}
+            )})}
             
             {/* Thinking indicator - shows when AI is processing */}
             {loading && (
