@@ -691,6 +691,54 @@ export default function AIAgentPage() {
   const handleOnboardingComplete = () => {
     setShowOnboarding(false)
     loadWorkflowStatus()
+    
+    // Auto-trigger API key collection after onboarding
+    setTimeout(() => {
+      const apiKeyMessage = "Great! Your store is configured. Now let's connect your platforms. What APIs do you have? Shopify? CJ Dropshipping? Meta Ads?"
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: apiKeyMessage + '\n\n[[FORM]]\n{"type":"connect","services":[{"id":"shopify","name":"Shopify","description":"Store API"},{"id":"cj","name":"CJ Dropshipping","description":"Supplier API"},{"id":"meta","name":"Meta Ads","description":"Advertising API"},{"id":"openwebninja","name":"OpenWeb Ninja","description":"Research APIs (Amazon, Walmart, eBay)"}]}\n[[/FORM]]',
+        timestamp: new Date().toISOString()
+      }])
+    }, 500)
+  }
+
+  // Save API key to backend
+  const [savingAPIKey, setSavingAPIKey] = useState(false)
+  const [apiKeyInputs, setApiKeyInputs] = useState<Record<string, string>>({})
+  
+  async function saveAPIKey(service: string, key: string) {
+    if (!activeStore?.id || !key.trim()) return
+    
+    setSavingAPIKey(true)
+    try {
+      const token = authToken || session?.access_token
+      if (!token) return
+      
+      const response = await fetch(`${API_URL}/api/credentials`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          store_id: activeStore.id,
+          service_type: service,
+          api_key: key.trim(),
+        }),
+      })
+      
+      if (response.ok) {
+        // Reload workflow status to update UI
+        loadWorkflowStatus()
+        // Clear input
+        setApiKeyInputs(prev => ({ ...prev, [service]: '' }))
+      }
+    } catch (error) {
+      console.error('Failed to save API key:', error)
+    } finally {
+      setSavingAPIKey(false)
+    }
   }
 
   async function loadContext() {
@@ -1897,10 +1945,22 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                   </span>
                   <Badge className="bg-yellow-500/20 text-yellow-400 text-xs">Required</Badge>
                 </div>
-                <Input 
-                  placeholder="Enter Shopify API key..."
-                  className="bg-white/5 border-white/10 text-white text-sm"
-                />
+                <div className="flex gap-2">
+                  <Input 
+                    placeholder="Enter Shopify API key..."
+                    value={apiKeyInputs.shopify || ''}
+                    onChange={(e) => setApiKeyInputs(prev => ({ ...prev, shopify: e.target.value }))}
+                    className="bg-white/5 border-white/10 text-white text-sm flex-1"
+                  />
+                  <Button 
+                    size="sm" 
+                    className="bg-green-600 hover:bg-green-500"
+                    disabled={savingAPIKey || !apiKeyInputs.shopify}
+                    onClick={() => saveAPIKey('shopify', apiKeyInputs.shopify)}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
 
               <Separator className="bg-white/10" />
@@ -1914,10 +1974,22 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                   </span>
                   <Badge className="bg-slate-500/20 text-slate-400 text-xs">Optional</Badge>
                 </div>
-                <Input 
-                  placeholder="Enter Meta Access Token..."
-                  className="bg-white/5 border-white/10 text-white text-sm"
-                />
+                <div className="flex gap-2">
+                  <Input 
+                    placeholder="Enter Meta Access Token..."
+                    value={apiKeyInputs.meta_ads || ''}
+                    onChange={(e) => setApiKeyInputs(prev => ({ ...prev, meta_ads: e.target.value }))}
+                    className="bg-white/5 border-white/10 text-white text-sm flex-1"
+                  />
+                  <Button 
+                    size="sm" 
+                    className="bg-blue-600 hover:bg-blue-500"
+                    disabled={savingAPIKey || !apiKeyInputs.meta_ads}
+                    onClick={() => saveAPIKey('meta_ads', apiKeyInputs.meta_ads)}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
 
               <Separator className="bg-white/10" />
@@ -1931,10 +2003,22 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                   </span>
                   <Badge className="bg-yellow-500/20 text-yellow-400 text-xs">Required</Badge>
                 </div>
-                <Input 
-                  placeholder="Enter CJ API key..."
-                  className="bg-white/5 border-white/10 text-white text-sm"
-                />
+                <div className="flex gap-2">
+                  <Input 
+                    placeholder="Enter CJ API key..."
+                    value={apiKeyInputs.cj_dropshipping || ''}
+                    onChange={(e) => setApiKeyInputs(prev => ({ ...prev, cj_dropshipping: e.target.value }))}
+                    className="bg-white/5 border-white/10 text-white text-sm flex-1"
+                  />
+                  <Button 
+                    size="sm" 
+                    className="bg-orange-600 hover:bg-orange-500"
+                    disabled={savingAPIKey || !apiKeyInputs.cj_dropshipping}
+                    onClick={() => saveAPIKey('cj_dropshipping', apiKeyInputs.cj_dropshipping)}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
 
               <Separator className="bg-white/10" />
@@ -1944,28 +2028,35 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                 <p className="text-xs text-slate-500 uppercase tracking-wide">Research APIs (OpenWeb Ninja)</p>
                 
                 {[
-                  { id: 'amazon', name: 'Amazon Data', icon: '📦', color: 'text-orange-400' },
-                  { id: 'walmart', name: 'Walmart Data', icon: '🏪', color: 'text-blue-400' },
-                  { id: 'ebay', name: 'eBay Data', icon: '🏷️', color: 'text-red-400' },
-                  { id: 'product', name: 'Product Search', icon: '🔍', color: 'text-purple-400' },
-                  { id: 'ecommerce', name: 'E-commerce Data', icon: '🛒', color: 'text-green-400' },
+                  { id: 'openwebninja_amazon', name: 'Amazon Data', icon: '📦', color: 'text-orange-400' },
+                  { id: 'openwebninja_walmart', name: 'Walmart Data', icon: '🏪', color: 'text-blue-400' },
+                  { id: 'openwebninja_ebay', name: 'eBay Data', icon: '🏷️', color: 'text-red-400' },
+                  { id: 'openwebninja_product_search', name: 'Product Search', icon: '🔍', color: 'text-purple-400' },
+                  { id: 'openwebninja_ecommerce', name: 'E-commerce Data', icon: '🛒', color: 'text-green-400' },
                 ].map(api => (
-                  <div key={api.id} className="flex items-center justify-between py-1">
-                    <span className="text-sm text-slate-300 flex items-center gap-2">
+                  <div key={api.id} className="flex items-center gap-2">
+                    <span className="text-sm text-slate-300 flex items-center gap-2 flex-1">
                       <span>{api.icon}</span>
                       {api.name}
                     </span>
-                    <Button size="sm" variant="ghost" className="h-6 text-xs text-violet-400 hover:text-violet-300">
-                      Add Key
+                    <Input 
+                      placeholder="API key..."
+                      value={apiKeyInputs[api.id] || ''}
+                      onChange={(e) => setApiKeyInputs(prev => ({ ...prev, [api.id]: e.target.value }))}
+                      className="bg-white/5 border-white/10 text-white text-xs w-32"
+                    />
+                    <Button 
+                      size="sm" 
+                      variant="ghost" 
+                      className="h-7 text-xs text-violet-400 hover:text-violet-300 px-2"
+                      disabled={savingAPIKey || !apiKeyInputs[api.id]}
+                      onClick={() => saveAPIKey(api.id, apiKeyInputs[api.id])}
+                    >
+                      <CheckCircle2 className="w-3 h-3" />
                     </Button>
                   </div>
                 ))}
               </div>
-
-              <Button className="w-full bg-violet-600 hover:bg-violet-500">
-                <Save className="w-4 h-4 mr-2" />
-                Save API Keys
-              </Button>
             </CardContent>
           </Card>
         )}
