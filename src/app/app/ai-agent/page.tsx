@@ -116,7 +116,7 @@ function ThinkingDots() {
   )
 }
 
-// Parse [[FORM]] blocks from AI message content
+// Parse [[FORM]] blocks from AI message content (handles JSON format)
 function parseFormBlocks(content: string): { 
   text: string; 
   forms: Array<{
@@ -128,60 +128,72 @@ function parseFormBlocks(content: string): {
     max?: number;
     default?: number;
     placeholder?: string;
+    services?: Array<{id: string; name: string; description?: string}>;
   }> 
 } {
   const forms: Array<any> = []
   
-  // Match [[FORM type="..." ...]] with various attributes
-  const formRegex = /\[\[FORM\s+([^\]]+)\]\]/gi
+  // Match [[FORM]] ... [[/FORM]] blocks with JSON content
+  const formRegex = /\[\[FORM\]\]([\s\S]*?)\[\[\/FORM\]\]/gi
   
   let cleanedText = content
   let match
   
   while ((match = formRegex.exec(content)) !== null) {
-    const attrsStr = match[1]
+    const jsonStr = match[1].trim()
     
-    // Parse attributes
-    const attrs: Record<string, string> = {}
-    const attrRegex = /(\w+)=["']?([^"'\s\]]+)["']?/g
-    let attrMatch
-    while ((attrMatch = attrRegex.exec(attrsStr)) !== null) {
-      attrs[attrMatch[1]] = attrMatch[2]
+    try {
+      // Parse the JSON content
+      const data = JSON.parse(jsonStr)
+      
+      // Handle different form types based on the JSON structure
+      if (data.type === 'range' || data.type === 'slider') {
+        forms.push({
+          type: 'slider',
+          min: data.min || 0,
+          max: data.max || 10,
+          default: data.default || data.value || 5,
+        })
+      } else if (data.type === 'number' || data.type === 'budget') {
+        forms.push({
+          type: 'number',
+          placeholder: data.help_text || data.placeholder || 'Enter amount...',
+          min: data.min,
+          max: data.max,
+          prefix: data.prefix,
+        })
+      } else if (data.type === 'connect' && data.services) {
+        // Parse services array
+        const services = data.services.map((s: any) => ({
+          id: s.id || s.name,
+          name: s.name || s.id,
+          description: s.description,
+        }))
+        forms.push({ 
+          type: 'connect', 
+          options: services.map((s: any) => s.name),
+          services,
+          allowMultiple: true 
+        })
+      } else if (data.type === 'chips' || data.type === 'cards' || data.options) {
+        // Handle options-based forms
+        const options = data.options || []
+        const allowMultiple = data.allowMultiple || data.multi === true
+        
+        forms.push({
+          type: data.type === 'chips' ? 'chips' : 'cards',
+          options: Array.isArray(options) ? options : [],
+          allowMultiple,
+          question: data.question,
+        })
+      }
+      
+      // Remove the form block from the text
+      cleanedText = cleanedText.replace(match[0], '').trim()
+    } catch (e) {
+      // If JSON parsing fails, keep the original text
+      console.error('Failed to parse FORM block:', e)
     }
-    
-    const type = attrs.type || 'text'
-    
-    if (type === 'slider') {
-      forms.push({
-        type: 'slider',
-        min: parseInt(attrs.min || '0'),
-        max: parseInt(attrs.max || '10'),
-        default: parseInt(attrs.default || '5'),
-      })
-    } else if (type === 'number' || type === 'budget') {
-      forms.push({
-        type: 'number',
-        placeholder: attrs.placeholder || 'Enter amount...',
-        min: attrs.min ? parseInt(attrs.min) : undefined,
-        max: attrs.max ? parseInt(attrs.max) : undefined,
-      })
-    } else if (type === 'connect') {
-      const servicesStr = attrs.services || ''
-      const options = servicesStr.split('|').map(o => o.trim()).filter(Boolean)
-      forms.push({ type: 'connect', options, allowMultiple: true })
-    } else {
-      // Options-based forms
-      const optionsStr = attrs.options || ''
-      const options = optionsStr.split('|').map(o => o.trim()).filter(Boolean)
-      forms.push({ 
-        type, 
-        options, 
-        allowMultiple: attrs.multi === 'true',
-        question: attrs.question,
-      })
-    }
-    
-    cleanedText = cleanedText.replace(match[0], '').trim()
   }
   
   return { text: cleanedText, forms }
