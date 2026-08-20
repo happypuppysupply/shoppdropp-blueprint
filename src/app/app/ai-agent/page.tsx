@@ -15,6 +15,9 @@ import {
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { OnboardingWizard } from '@/components/dashboard/OnboardingWizard'
+import { SliderForm } from '@/components/agent/SliderForm'
+import { NumberForm } from '@/components/agent/NumberForm'
+import { ConnectAPIForm } from '@/components/agent/ConnectAPIForm'
 
 interface Message {
   role: 'user' | 'assistant' | 'system'
