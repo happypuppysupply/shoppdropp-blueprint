@@ -10,7 +10,7 @@ import {
   Bot, Send, Sparkles, Server, Store, AlertCircle, CheckCircle2, 
   Loader2, Wallet, TrendingUp, Settings, Activity, Zap, 
   Shield, CreditCard, ChevronRight, Rocket, LayoutTemplate, Brain, X, AlertTriangle,
-  CheckSquare, Square, Lock, ShoppingBag, Share2, Truck, Save
+  CheckSquare, Square, Lock, ShoppingBag, Share2, Truck, Save, Target, Users
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
@@ -18,6 +18,7 @@ import { OnboardingWizard } from '@/components/dashboard/OnboardingWizard'
 import { SliderForm } from '@/components/agent/SliderForm'
 import { NumberForm } from '@/components/agent/NumberForm'
 import { ConnectAPIForm } from '@/components/agent/ConnectAPIForm'
+import { TextForm } from '@/components/agent/TextForm'
 
 interface Message {
   role: 'user' | 'assistant' | 'system'
@@ -161,6 +162,11 @@ function parseFormBlocks(content: string): {
           min: data.min,
           max: data.max,
           prefix: data.prefix,
+        })
+      } else if (data.type === 'text') {
+        forms.push({
+          type: 'text',
+          placeholder: data.placeholder || 'Type your answer...',
         })
       } else if (data.type === 'connect' && data.services) {
         // Parse services array
@@ -1474,6 +1480,14 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                           
                           return (
                             <div key={formIdx}>
+                              {/* TEXT INPUT FORM */}
+                              {form.type === 'text' && (
+                                <TextForm 
+                                  placeholder={form.placeholder}
+                                  onSubmit={handleSubmit}
+                                />
+                              )}
+                              
                               {/* SLIDER FORM */}
                               {form.type === 'slider' && (
                                 <SliderForm 
@@ -1852,7 +1866,7 @@ Next, I need to learn about your store to provide personalized assistance. Let's
             <CardHeader className="pb-3">
               <CardTitle className="text-sm flex items-center gap-2 text-slate-400">
                 <LayoutTemplate className="w-4 h-4 text-violet-400" />
-                Onboarding Progress
+                Store Configuration
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -1861,62 +1875,170 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-400">Completion</span>
                   <span className="text-violet-400 font-medium">
-                    {workflowStatus?.onboardingComplete ? '100%' : `${Math.round((onboardingStep / 6) * 100)}%`}
+                    {workflowStatus?.onboardingComplete ? '100%' : `${Math.min(100, Math.round((Object.keys(onboardingAnswers).length / 12) * 100))}%`}
                   </span>
                 </div>
                 <div className="h-2 bg-white/10 rounded-full overflow-hidden">
                   <div 
                     className="h-full rounded-full bg-violet-500 transition-all"
-                    style={{ width: `${workflowStatus?.onboardingComplete ? 100 : (onboardingStep / 6) * 100}%` }}
+                    style={{ width: `${workflowStatus?.onboardingComplete ? 100 : Math.min(100, Math.round((Object.keys(onboardingAnswers).length / 12) * 100))}%` }}
                   />
                 </div>
               </div>
 
               <Separator className="bg-white/10" />
 
-              {/* Completed Answers */}
-              {Object.keys(onboardingAnswers).length > 0 ? (
-                <div className="space-y-3">
-                  <p className="text-xs text-slate-500 uppercase tracking-wide">Configuration</p>
-                  {Object.entries(onboardingAnswers).map(([key, value]) => (
-                    <div key={key} className="flex items-start gap-2 text-sm">
-                      <CheckCircle2 className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+              {/* Store Identity */}
+              {onboardingAnswers.store_name && (
+                <div className="space-y-2">
+                  <p className="text-xs text-slate-500 uppercase tracking-wide">Store Identity</p>
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
+                    <div>
+                      <p className="text-slate-400 text-xs">Store Name</p>
+                      <p className="text-white font-medium">{onboardingAnswers.store_name}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Product Info */}
+              {(onboardingAnswers.category || onboardingAnswers.niche) && (
+                <div className="space-y-2">
+                  <p className="text-xs text-slate-500 uppercase tracking-wide">Product</p>
+                  {onboardingAnswers.category && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
                       <div>
-                        <p className="text-slate-400 text-xs capitalize">{key.replace(/_/g, ' ')}</p>
-                        <p className="text-white">{Array.isArray(value) ? value.join(', ') : value}</p>
+                        <p className="text-slate-400 text-xs">Category</p>
+                        <p className="text-white">{onboardingAnswers.category}</p>
                       </div>
                     </div>
-                  ))}
+                  )}
+                  {onboardingAnswers.niche && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
+                      <div>
+                        <p className="text-slate-400 text-xs">Niche</p>
+                        <p className="text-white">{onboardingAnswers.niche}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              ) : (
+              )}
+
+              {/* Facebook Ads Targeting */}
+              {(onboardingAnswers.location || onboardingAnswers.age_range || onboardingAnswers.gender || onboardingAnswers.interests) && (
+                <div className="space-y-2">
+                  <p className="text-xs text-slate-500 uppercase tracking-wide flex items-center gap-1">
+                    <Share2 className="w-3 h-3" />
+                    Meta/Facebook Ads Targeting
+                  </p>
+                  {onboardingAnswers.location && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
+                      <div>
+                        <p className="text-slate-400 text-xs">Target Locations</p>
+                        <p className="text-white">{Array.isArray(onboardingAnswers.location) ? onboardingAnswers.location.join(', ') : onboardingAnswers.location}</p>
+                      </div>
+                    </div>
+                  )}
+                  {onboardingAnswers.age_range && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
+                      <div>
+                        <p className="text-slate-400 text-xs">Age Range</p>
+                        <p className="text-white">{onboardingAnswers.age_range}</p>
+                      </div>
+                    </div>
+                  )}
+                  {onboardingAnswers.gender && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
+                      <div>
+                        <p className="text-slate-400 text-xs">Gender</p>
+                        <p className="text-white">{onboardingAnswers.gender}</p>
+                      </div>
+                    </div>
+                  )}
+                  {onboardingAnswers.interests && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
+                      <div>
+                        <p className="text-slate-400 text-xs">Interests (Detailed Targeting)</p>
+                        <p className="text-white">{Array.isArray(onboardingAnswers.interests) ? onboardingAnswers.interests.join(', ') : onboardingAnswers.interests}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Pain Points */}
+              {onboardingAnswers.pain_points && (
+                <div className="space-y-2">
+                  <p className="text-xs text-slate-500 uppercase tracking-wide">Pain Points Solved</p>
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
+                    <div>
+                      <p className="text-white">{Array.isArray(onboardingAnswers.pain_points) ? onboardingAnswers.pain_points.join(', ') : onboardingAnswers.pain_points}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Brand & Pricing */}
+              {(onboardingAnswers.brand_personality || onboardingAnswers.price_positioning || onboardingAnswers.product_price_range) && (
+                <div className="space-y-2">
+                  <p className="text-xs text-slate-500 uppercase tracking-wide">Brand & Pricing</p>
+                  {onboardingAnswers.brand_personality && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
+                      <div>
+                        <p className="text-slate-400 text-xs">Brand Personality</p>
+                        <p className="text-white">{onboardingAnswers.brand_personality}</p>
+                      </div>
+                    </div>
+                  )}
+                  {onboardingAnswers.price_positioning && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
+                      <div>
+                        <p className="text-slate-400 text-xs">Price Strategy</p>
+                        <p className="text-white">{onboardingAnswers.price_positioning}</p>
+                      </div>
+                    </div>
+                  )}
+                  {onboardingAnswers.product_price_range && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
+                      <div>
+                        <p className="text-slate-400 text-xs">Product Price Range</p>
+                        <p className="text-white">{onboardingAnswers.product_price_range}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Marketing Budget */}
+              {onboardingAnswers.marketing_budget && (
+                <div className="space-y-2">
+                  <p className="text-xs text-slate-500 uppercase tracking-wide">Marketing</p>
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
+                    <div>
+                      <p className="text-slate-400 text-xs">Monthly Meta Ads Budget</p>
+                      <p className="text-white font-medium">${onboardingAnswers.marketing_budget}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Empty State */}
+              {Object.keys(onboardingAnswers).length === 0 && (
                 <p className="text-sm text-slate-500 text-center py-4">
                   No onboarding data yet. Start chatting with the AI to configure your store.
                 </p>
-              )}
-
-              {/* Pending Steps */}
-              {!workflowStatus?.onboardingComplete && onboardingStep < 6 && (
-                <>
-                  <Separator className="bg-white/10" />
-                  <div className="space-y-2">
-                    <p className="text-xs text-slate-500 uppercase tracking-wide">Next Steps</p>
-                    {[
-                      { step: 1, label: 'Select category' },
-                      { step: 2, label: 'Choose niche' },
-                      { step: 3, label: 'Define audience' },
-                      { step: 4, label: 'Set brand voice' },
-                      { step: 5, label: 'Set pricing strategy' },
-                      { step: 6, label: 'Set marketing budget' },
-                    ].filter(s => s.step > onboardingStep).map(s => (
-                      <div key={s.step} className="flex items-center gap-2 text-sm text-slate-400">
-                        <div className="w-4 h-4 rounded-full border border-slate-600 flex items-center justify-center text-[10px]">
-                          {s.step}
-                        </div>
-                        {s.label}
-                      </div>
-                    ))}
-                  </div>
-                </>
               )}
             </CardContent>
           </Card>
