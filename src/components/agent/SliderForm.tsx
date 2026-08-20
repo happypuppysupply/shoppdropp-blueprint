@@ -23,6 +23,12 @@ export function SliderForm({
 }: SliderFormProps) {
   const [value, setValue] = useState(defaultValue)
   
+  const handleValueChange = (val: number | readonly number[]) => {
+    if (Array.isArray(val) && typeof val[0] === 'number') {
+      setValue(val[0])
+    }
+  }
+  
   return (
     <div className="space-y-4 py-2">
       <div className="flex justify-between text-sm text-slate-400">
@@ -35,7 +41,7 @@ export function SliderForm({
         min={min}
         max={max}
         step={1}
-        onValueChange={(v: number[]) => setValue(v[0])}
+        onValueChange={handleValueChange}
         className="w-full"
       />
       <Button 
