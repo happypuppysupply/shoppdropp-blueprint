@@ -117,23 +117,70 @@ function ThinkingDots() {
 }
 
 // Parse [[FORM]] blocks from AI message content
-function parseFormBlocks(content: string): { text: string; forms: Array<{type: string; options: string[]; question?: string}> } {
-  const forms: Array<{type: string; options: string[]; question?: string}> = []
+function parseFormBlocks(content: string): { 
+  text: string; 
+  forms: Array<{
+    type: string; 
+    options?: string[]; 
+    question?: string; 
+    allowMultiple?: boolean;
+    min?: number;
+    max?: number;
+    default?: number;
+    placeholder?: string;
+  }> 
+} {
+  const forms: Array<any> = []
   
-  // Match [[FORM type="..." options="..."]] or [[FORM type='...' options='...']]
-  const formRegex = /\[\[FORM\s+type=["']([^"']+)["']\s+options=["']([^"']+)["']\s*\]\]/gi
+  // Match [[FORM type="..." ...]] with various attributes
+  const formRegex = /\[\[FORM\s+([^\]]+)\]\]/gi
   
   let cleanedText = content
   let match
   
   while ((match = formRegex.exec(content)) !== null) {
-    const type = match[1]
-    const optionsStr = match[2]
-    // Split options by pipe character
-    const options = optionsStr.split('|').map(o => o.trim()).filter(Boolean)
+    const attrsStr = match[1]
     
-    forms.push({ type, options })
-    // Remove the form block from the text
+    // Parse attributes
+    const attrs: Record<string, string> = {}
+    const attrRegex = /(\w+)=["']?([^"'\s\]]+)["']?/g
+    let attrMatch
+    while ((attrMatch = attrRegex.exec(attrsStr)) !== null) {
+      attrs[attrMatch[1]] = attrMatch[2]
+    }
+    
+    const type = attrs.type || 'text'
+    
+    if (type === 'slider') {
+      forms.push({
+        type: 'slider',
+        min: parseInt(attrs.min || '0'),
+        max: parseInt(attrs.max || '10'),
+        default: parseInt(attrs.default || '5'),
+      })
+    } else if (type === 'number' || type === 'budget') {
+      forms.push({
+        type: 'number',
+        placeholder: attrs.placeholder || 'Enter amount...',
+        min: attrs.min ? parseInt(attrs.min) : undefined,
+        max: attrs.max ? parseInt(attrs.max) : undefined,
+      })
+    } else if (type === 'connect') {
+      const servicesStr = attrs.services || ''
+      const options = servicesStr.split('|').map(o => o.trim()).filter(Boolean)
+      forms.push({ type: 'connect', options, allowMultiple: true })
+    } else {
+      // Options-based forms
+      const optionsStr = attrs.options || ''
+      const options = optionsStr.split('|').map(o => o.trim()).filter(Boolean)
+      forms.push({ 
+        type, 
+        options, 
+        allowMultiple: attrs.multi === 'true',
+        question: attrs.question,
+      })
+    }
+    
     cleanedText = cleanedText.replace(match[0], '').trim()
   }
   
@@ -1242,69 +1289,81 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                   {forms.length > 0 && msg.role === 'assistant' && (
                     <div className="flex gap-3">
                       <div className="w-8" />
-                      <div className="max-w-[80%] flex-1 space-y-2">
-                        {forms.map((form, formIdx) => (
-                          <InteractiveQuestion
-                            key={formIdx}
-                            options={form.options}
-                            allowMultiple={false}
-                            variant={form.type === 'cards' ? 'cards' : form.type === 'chips' ? 'chips' : 'default'}
-                            onSubmit={(selected) => {
-                              const selectedText = Array.isArray(selected) 
-                                ? selected.join(', ') 
-                                : selected
-                              // Send the selection as a user message
-                              const selectionMessage = `Selected: ${selectedText}`
-                              setMessages(prev => [...prev, { role: 'user', content: selectionMessage }])
-                              // Process the selection through the API
-                              const token = authToken || session?.access_token
-                              if (token && wsRef.current?.readyState === WebSocket.OPEN) {
-                                const conversationHistory = [...messages, { 
-                                  role: 'user', 
-                                  content: selectionMessage 
-                                }]
-                                  .filter(m => m.role === 'user' || m.role === 'assistant')
-                                  .slice(-10)
-                                  .map(m => ({ role: m.role, content: m.content }))
-                                
-                                wsRef.current.send(JSON.stringify({
-                                  type: 'chat',
-                                  content: selectionMessage,
-                                  conversation_history: conversationHistory,
-                                }))
-                                setLoading(true)
-                              } else if (token) {
-                                // HTTP fallback
-                                fetch(`${API_URL}/api/ai-chat/chat`, {
-                                  method: 'POST',
-                                  headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${token}`,
-                                  },
-                                  body: JSON.stringify({
-                                    message: selectionMessage,
-                                    conversation_history: messages
-                                      .filter(m => m.role === 'user' || m.role === 'assistant')
-                                      .slice(-10)
-                                      .map(m => ({ role: m.role, content: m.content })),
-                                  }),
-                                }).then(async (res) => {
-                                  const data = await res.json()
-                                  setMessages(prev => [...prev, { 
-                                    role: 'assistant', 
-                                    content: data.response 
-                                  }])
-                                }).catch(err => {
-                                  setMessages(prev => [...prev, { 
-                                    role: 'assistant', 
-                                    content: 'Error processing your selection. Please try again.' 
-                                  }])
-                                })
-                                setLoading(true)
-                              }
-                            }}
-                          />
-                        ))}
+                      <div className="max-w-[80%] flex-1 space-y-3">
+                        {forms.map((form, formIdx) => {
+                          const handleSubmit = (value: string | number | string[]) => {
+                            const selectedText = Array.isArray(value) ? value.join(', ') : String(value)
+                            const selectionMessage = `Selected: ${selectedText}`
+                            setMessages(prev => [...prev, { role: 'user', content: selectionMessage }])
+                            
+                            const token = authToken || session?.access_token
+                            if (token && wsRef.current?.readyState === WebSocket.OPEN) {
+                              wsRef.current.send(JSON.stringify({
+                                type: 'chat',
+                                content: selectionMessage,
+                              }))
+                              setLoading(true)
+                            } else if (token) {
+                              fetch(`${API_URL}/api/ai-chat/chat`, {
+                                method: 'POST',
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                  'Authorization': `Bearer ${token}`,
+                                },
+                                body: JSON.stringify({ message: selectionMessage }),
+                              }).then(async (res) => {
+                                const data = await res.json()
+                                setMessages(prev => [...prev, { role: 'assistant', content: data.response }])
+                                setLoading(false)
+                              }).catch(() => setLoading(false))
+                              setLoading(true)
+                            }
+                          }
+                          
+                          return (
+                            <div key={formIdx}>
+                              {/* SLIDER FORM */}
+                              {form.type === 'slider' && (
+                                <SliderForm 
+                                  min={form.min || 0} 
+                                  max={form.max || 10} 
+                                  defaultValue={form.default || 5}
+                                  onSubmit={(v) => handleSubmit(`${v}/10`)}
+                                />
+                              )}
+                              
+                              {/* NUMBER/BUDGET INPUT */}
+                              {(form.type === 'number' || form.type === 'budget') && (
+                                <NumberForm 
+                                  placeholder={form.placeholder}
+                                  prefix={form.type === 'budget' ? '$' : ''}
+                                  min={form.min}
+                                  max={form.max}
+                                  onSubmit={handleSubmit}
+                                />
+                              )}
+                              
+                              {/* API CONNECT FORM */}
+                              {form.type === 'connect' && form.options && (
+                                <ConnectAPIForm 
+                                  services={form.options}
+                                  onSubmit={handleSubmit}
+                                />
+                              )}
+                              
+                              {/* OPTIONS FORM */}
+                              {(form.type === 'cards' || form.type === 'chips' || form.type === 'single' || form.type === 'multiselect') && form.options && (
+                                <InteractiveQuestion
+                                  question={form.question}
+                                  options={form.options}
+                                  allowMultiple={form.allowMultiple || form.type === 'multiselect'}
+                                  variant={form.type === 'cards' ? 'cards' : 'chips'}
+                                  onSubmit={handleSubmit}
+                                />
+                              )}
+                            </div>
+                          )
+                        })}
                       </div>
                     </div>
                   )}
