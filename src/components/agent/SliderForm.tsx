@@ -35,7 +35,7 @@ export function SliderForm({
         min={min}
         max={max}
         step={1}
-        onValueChange={(v) => setValue(v[0])}
+        onValueChange={(v: number[]) => setValue(v[0])}
         className="w-full"
       />
       <Button 
