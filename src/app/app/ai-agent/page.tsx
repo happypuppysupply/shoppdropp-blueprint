@@ -302,6 +302,9 @@ export default function AIAgentPage() {
   const [showOnboarding, setShowOnboarding] = useState(false)
   const [hasGreeted, setHasGreeted] = useState(false)
   
+  // Sidebar view state
+  const [sidebarView, setSidebarView] = useState<'setup' | 'vps'>('setup')
+  
   // Worker & Provisioning state
   const [workerStatus, setWorkerStatus] = useState<'loading' | 'provisioning' | 'running' | 'error' | 'none'>('loading')
   const [provisionError, setProvisionError] = useState<string | null>(null)
