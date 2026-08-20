@@ -131,6 +131,8 @@ function parseFormBlocks(content: string): {
     default?: number;
     placeholder?: string;
     services?: Array<{id: string; name: string; description?: string}>;
+    leftLabel?: string;
+    rightLabel?: string;
   }> 
 } {
   const forms: Array<any> = []
@@ -155,6 +157,8 @@ function parseFormBlocks(content: string): {
           min: data.min || 0,
           max: data.max || 10,
           default: data.default || data.value || 5,
+          leftLabel: data.leftLabel,
+          rightLabel: data.rightLabel,
         })
       } else if (data.type === 'number' || data.type === 'budget') {
         forms.push({
