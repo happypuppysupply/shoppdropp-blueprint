@@ -10,7 +10,7 @@ import {
   Bot, Send, Sparkles, Server, Store, AlertCircle, CheckCircle2, 
   Loader2, Wallet, TrendingUp, Settings, Activity, Zap, 
   Shield, CreditCard, ChevronRight, Rocket, LayoutTemplate, Brain, X, AlertTriangle,
-  CheckSquare, Square, Lock
+  CheckSquare, Square, Lock, ShoppingBag, Share2, Truck, Save
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
@@ -415,7 +415,7 @@ export default function AIAgentPage() {
   const [hasGreeted, setHasGreeted] = useState(false)
   
   // Sidebar view state
-  const [sidebarView, setSidebarView] = useState<'setup' | 'vps'>('setup')
+  const [sidebarView, setSidebarView] = useState<'setup' | 'vps' | 'onboarding' | 'api' | 'workflow'>('setup')
   
   // Onboarding state
   const [onboardingStep, setOnboardingStep] = useState(0)
@@ -1674,9 +1674,15 @@ Next, I need to learn about your store to provide personalized assistance. Let's
             <Separator className="bg-white/10" />
             
             {/* Onboarding Stage */}
-            <div className="space-y-2">
+            <div 
+              className="space-y-2 p-2 -m-2 rounded-lg cursor-pointer hover:bg-white/5 transition-colors"
+              onClick={() => setSidebarView('onboarding')}
+            >
               <div className="flex items-center justify-between">
-                <span className="text-sm text-white font-medium">Onboarding</span>
+                <span className="text-sm text-white font-medium flex items-center gap-2">
+                  <LayoutTemplate className="w-4 h-4 text-violet-400" />
+                  Onboarding
+                </span>
                 {workflowStatus?.onboardingComplete ? (
                   <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
                     <CheckCircle2 className="w-3 h-3 mr-1" />
@@ -1715,9 +1721,19 @@ Next, I need to learn about your store to provide personalized assistance. Let's
             <Separator className="bg-white/10" />
             
             {/* API Keys Stage */}
-            <div className="space-y-2">
+            <div 
+              className={`space-y-2 p-2 -m-2 rounded-lg transition-colors ${
+                workflowStatus?.onboardingComplete 
+                  ? 'cursor-pointer hover:bg-white/5' 
+                  : 'cursor-not-allowed opacity-60'
+              }`}
+              onClick={() => workflowStatus?.onboardingComplete && setSidebarView('api')}
+            >
               <div className="flex items-center justify-between">
-                <span className="text-sm text-white font-medium">API Keys</span>
+                <span className="text-sm text-white font-medium flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-amber-400" />
+                  API Keys
+                </span>
                 {workflowStatus?.canStartWorkflow ? (
                   <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
                     <CheckCircle2 className="w-3 h-3 mr-1" />
@@ -1739,9 +1755,19 @@ Next, I need to learn about your store to provide personalized assistance. Let's
             <Separator className="bg-white/10" />
             
             {/* AI Workflow Stage */}
-            <div className="space-y-2">
+            <div 
+              className={`space-y-2 p-2 -m-2 rounded-lg transition-colors ${
+                workflowStatus?.canStartWorkflow 
+                  ? 'cursor-pointer hover:bg-white/5' 
+                  : 'cursor-not-allowed opacity-60'
+              }`}
+              onClick={() => workflowStatus?.canStartWorkflow && setSidebarView('workflow')}
+            >
               <div className="flex items-center justify-between">
-                <span className="text-sm text-white font-medium">AI Workflow</span>
+                <span className="text-sm text-white font-medium flex items-center gap-2">
+                  <Brain className="w-4 h-4 text-pink-400" />
+                  AI Workflow
+                </span>
                 {workflowStatus?.canStartWorkflow ? (
                   <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
                     <Zap className="w-3 h-3 mr-1" />
@@ -1758,7 +1784,10 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                 <Button 
                   size="sm" 
                   className="w-full bg-violet-600 hover:bg-violet-500"
-                  onClick={() => setInput('start my store workflow')}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setInput('start my store workflow')
+                  }}
                 >
                   <Rocket className="w-4 h-4 mr-2" />
                   Start Workflow
@@ -1767,6 +1796,234 @@ Next, I need to learn about your store to provide personalized assistance. Let's
             </div>
           </CardContent>
         </Card>
+        )}
+
+        {/* ONBOARDING DETAIL VIEW */}
+        {sidebarView === 'onboarding' && (
+          <Card className="bg-[#111118] border-white/10">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2 text-slate-400">
+                <LayoutTemplate className="w-4 h-4 text-violet-400" />
+                Onboarding Progress
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Progress Overview */}
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-400">Completion</span>
+                  <span className="text-violet-400 font-medium">
+                    {workflowStatus?.onboardingComplete ? '100%' : `${Math.round((onboardingStep / 6) * 100)}%`}
+                  </span>
+                </div>
+                <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full rounded-full bg-violet-500 transition-all"
+                    style={{ width: `${workflowStatus?.onboardingComplete ? 100 : (onboardingStep / 6) * 100}%` }}
+                  />
+                </div>
+              </div>
+
+              <Separator className="bg-white/10" />
+
+              {/* Completed Answers */}
+              {Object.keys(onboardingAnswers).length > 0 ? (
+                <div className="space-y-3">
+                  <p className="text-xs text-slate-500 uppercase tracking-wide">Configuration</p>
+                  {Object.entries(onboardingAnswers).map(([key, value]) => (
+                    <div key={key} className="flex items-start gap-2 text-sm">
+                      <CheckCircle2 className="w-4 h-4 text-green-400 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-slate-400 text-xs capitalize">{key.replace(/_/g, ' ')}</p>
+                        <p className="text-white">{Array.isArray(value) ? value.join(', ') : value}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-slate-500 text-center py-4">
+                  No onboarding data yet. Start chatting with the AI to configure your store.
+                </p>
+              )}
+
+              {/* Pending Steps */}
+              {!workflowStatus?.onboardingComplete && onboardingStep < 6 && (
+                <>
+                  <Separator className="bg-white/10" />
+                  <div className="space-y-2">
+                    <p className="text-xs text-slate-500 uppercase tracking-wide">Next Steps</p>
+                    {[
+                      { step: 1, label: 'Select category' },
+                      { step: 2, label: 'Choose niche' },
+                      { step: 3, label: 'Define audience' },
+                      { step: 4, label: 'Set brand voice' },
+                      { step: 5, label: 'Set pricing strategy' },
+                      { step: 6, label: 'Set marketing budget' },
+                    ].filter(s => s.step > onboardingStep).map(s => (
+                      <div key={s.step} className="flex items-center gap-2 text-sm text-slate-400">
+                        <div className="w-4 h-4 rounded-full border border-slate-600 flex items-center justify-center text-[10px]">
+                          {s.step}
+                        </div>
+                        {s.label}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* API KEYS DETAIL VIEW */}
+        {sidebarView === 'api' && (
+          <Card className="bg-[#111118] border-white/10">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2 text-slate-400">
+                <Shield className="w-4 h-4 text-amber-400" />
+                API Keys
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-slate-500">
+                Connect your platforms and research APIs to enable full automation.
+              </p>
+
+              {/* Shopify */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-white flex items-center gap-2">
+                    <ShoppingBag className="w-4 h-4 text-green-400" />
+                    Shopify
+                  </span>
+                  <Badge className="bg-yellow-500/20 text-yellow-400 text-xs">Required</Badge>
+                </div>
+                <Input 
+                  placeholder="Enter Shopify API key..."
+                  className="bg-white/5 border-white/10 text-white text-sm"
+                />
+              </div>
+
+              <Separator className="bg-white/10" />
+
+              {/* Meta Ads */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-white flex items-center gap-2">
+                    <Share2 className="w-4 h-4 text-blue-400" />
+                    Meta Ads
+                  </span>
+                  <Badge className="bg-slate-500/20 text-slate-400 text-xs">Optional</Badge>
+                </div>
+                <Input 
+                  placeholder="Enter Meta Access Token..."
+                  className="bg-white/5 border-white/10 text-white text-sm"
+                />
+              </div>
+
+              <Separator className="bg-white/10" />
+
+              {/* CJ Dropshipping */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-white flex items-center gap-2">
+                    <Truck className="w-4 h-4 text-orange-400" />
+                    CJ Dropshipping
+                  </span>
+                  <Badge className="bg-yellow-500/20 text-yellow-400 text-xs">Required</Badge>
+                </div>
+                <Input 
+                  placeholder="Enter CJ API key..."
+                  className="bg-white/5 border-white/10 text-white text-sm"
+                />
+              </div>
+
+              <Separator className="bg-white/10" />
+
+              {/* OpenWeb Ninja Research APIs */}
+              <div className="space-y-2">
+                <p className="text-xs text-slate-500 uppercase tracking-wide">Research APIs (OpenWeb Ninja)</p>
+                
+                {[
+                  { id: 'amazon', name: 'Amazon Data', icon: '📦', color: 'text-orange-400' },
+                  { id: 'walmart', name: 'Walmart Data', icon: '🏪', color: 'text-blue-400' },
+                  { id: 'ebay', name: 'eBay Data', icon: '🏷️', color: 'text-red-400' },
+                  { id: 'product', name: 'Product Search', icon: '🔍', color: 'text-purple-400' },
+                  { id: 'ecommerce', name: 'E-commerce Data', icon: '🛒', color: 'text-green-400' },
+                ].map(api => (
+                  <div key={api.id} className="flex items-center justify-between py-1">
+                    <span className="text-sm text-slate-300 flex items-center gap-2">
+                      <span>{api.icon}</span>
+                      {api.name}
+                    </span>
+                    <Button size="sm" variant="ghost" className="h-6 text-xs text-violet-400 hover:text-violet-300">
+                      Add Key
+                    </Button>
+                  </div>
+                ))}
+              </div>
+
+              <Button className="w-full bg-violet-600 hover:bg-violet-500">
+                <Save className="w-4 h-4 mr-2" />
+                Save API Keys
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* WORKFLOW DETAIL VIEW */}
+        {sidebarView === 'workflow' && (
+          <Card className="bg-[#111118] border-white/10">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm flex items-center gap-2 text-slate-400">
+                <Brain className="w-4 h-4 text-pink-400" />
+                AI Workflow
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {!workflowStatus?.canStartWorkflow ? (
+                <div className="text-center py-6">
+                  <Lock className="w-8 h-8 text-slate-600 mx-auto mb-2" />
+                  <p className="text-sm text-slate-500">
+                    Complete onboarding and add API keys to unlock AI workflows.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <p className="text-xs text-slate-500 uppercase tracking-wide">Available Workflows</p>
+                    
+                    {[
+                      { name: 'Product Research', desc: 'Find winning products', icon: '🔍' },
+                      { name: 'Store Setup', desc: 'Configure your store', icon: '🏪' },
+                      { name: 'Ad Campaign', desc: 'Launch Meta ads', icon: '📢' },
+                      { name: 'Order Fulfillment', desc: 'Auto-process orders', icon: '📦' },
+                    ].map(flow => (
+                      <button
+                        key={flow.name}
+                        className="w-full p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-left"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg">{flow.icon}</span>
+                          <div>
+                            <p className="text-sm text-white font-medium">{flow.name}</p>
+                            <p className="text-xs text-slate-500">{flow.desc}</p>
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  <Button 
+                    className="w-full bg-violet-600 hover:bg-violet-500"
+                    onClick={() => setInput('start my store workflow')}
+                  >
+                    <Rocket className="w-4 h-4 mr-2" />
+                    Start Workflow
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
         )}
 
         {/* Gateway Status */}

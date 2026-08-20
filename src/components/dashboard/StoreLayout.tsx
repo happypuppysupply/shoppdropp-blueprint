@@ -288,27 +288,27 @@ export function StoreLayout({ children }: { children: React.ReactNode }) {
                   className={`w-full p-3 rounded-xl border transition-all ${
                     selectedStore === 'demo' 
                       ? 'bg-gradient-to-r from-violet-500/40 to-pink-500/40 border-violet-500 shadow-lg shadow-violet-500/20' 
-                      : 'bg-gradient-to-r from-violet-500/20 to-pink-500/20 border-violet-500/30 hover:border-violet-500/50'
+                      : 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-white/20'
                   }`}
                 >
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                      selectedStore === 'demo' ? 'bg-violet-500/50' : 'bg-violet-500/30'
+                      selectedStore === 'demo' ? 'bg-violet-500/50' : 'bg-white/10'
                     }`}>
-                      <Store className={`w-5 h-5 ${selectedStore === 'demo' ? 'text-white' : 'text-violet-300'}`} />
+                      <Store className={`w-5 h-5 ${selectedStore === 'demo' ? 'text-white' : 'text-slate-400'}`} />
                     </div>
                     <div className="flex-1 text-left">
                       <div className="flex items-center gap-2">
-                        <p className={`text-sm font-medium ${selectedStore === 'demo' ? 'text-white' : 'text-white'}`}>Demo Store</p>
+                        <p className={`text-sm font-medium ${selectedStore === 'demo' ? 'text-white' : 'text-slate-300'}`}>Demo Store</p>
                         <span className={`px-1.5 py-0.5 rounded text-[10px] ${
                           selectedStore === 'demo' 
                             ? 'bg-pink-500/50 text-white border border-pink-400/50' 
-                            : 'bg-violet-500/30 text-violet-300'
+                            : 'bg-slate-600/50 text-slate-400'
                         }`}>DEMO</span>
                       </div>
-                      <p className="text-xs text-slate-400">See how it works</p>
+                      <p className="text-xs text-slate-500">See how it works</p>
                     </div>
-                    <ChevronRight className={`w-4 h-4 ${selectedStore === 'demo' ? 'text-pink-400' : 'text-violet-400'}`} />
+                    <ChevronRight className={`w-4 h-4 ${selectedStore === 'demo' ? 'text-pink-400' : 'text-slate-600'}`} />
                   </div>
                 </button>
               </div>
