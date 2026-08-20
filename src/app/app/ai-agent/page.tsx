@@ -20,6 +20,7 @@ import { NumberForm } from '@/components/agent/NumberForm'
 import { ConnectAPIForm } from '@/components/agent/ConnectAPIForm'
 import { TextForm } from '@/components/agent/TextForm'
 import { APISplashScreen } from '@/components/agent/APISplashScreen'
+import { ONBOARDING_QUESTIONS, getQuestionById, getSectionName, TOTAL_ONBOARDING_QUESTIONS } from '@/lib/onboarding-questions'
 
 interface Message {
   role: 'user' | 'assistant' | 'system'
@@ -1793,7 +1794,7 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                   </Badge>
                 ) : (
                   <Badge className="bg-violet-500/20 text-violet-400 border-violet-500/30 text-xs">
-                    {Object.keys(onboardingAnswers).length > 0 ? `${Object.keys(onboardingAnswers).length}/27` : 'Not Started'}
+                    {Object.keys(onboardingAnswers).length > 0 ? `${Object.keys(onboardingAnswers).length}/${TOTAL_ONBOARDING_QUESTIONS}` : 'Not Started'}
                   </Badge>
                 )}
               </div>
@@ -1802,7 +1803,7 @@ Next, I need to learn about your store to provide personalized assistance. Let's
               <div className="h-2 bg-white/10 rounded-full overflow-hidden">
                 <div 
                   className="h-full rounded-full bg-violet-500 transition-all"
-                  style={{ width: `${workflowStatus?.onboardingComplete ? 100 : Math.min(100, (Object.keys(onboardingAnswers).length / 20) * 100)}%` }}
+                  style={{ width: `${workflowStatus?.onboardingComplete ? 100 : Math.min(100, (Object.keys(onboardingAnswers).length / TOTAL_ONBOARDING_QUESTIONS) * 100)}%` }}
                 />
               </div>
               
@@ -1933,28 +1934,32 @@ Next, I need to learn about your store to provide personalized assistance. Let's
 
               <Separator className="bg-white/10" />
 
-              {/* ALL QUESTIONS - Scrollable List */}
+              {/* ALL QUESTIONS - Scrollable List with Actual Names */}
               {Object.keys(onboardingAnswers).length > 0 ? (
                 <div className="max-h-[400px] overflow-y-auto space-y-3 pr-1">
-                  <p className="text-xs text-slate-500 uppercase tracking-wide">Completed Questions</p>
-                  {Object.entries(onboardingAnswers).map(([key, value], idx) => (
-                    <div key={key} className="flex items-start gap-2 text-sm">
-                      <div className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <CheckCircle2 className="w-3 h-3 text-green-400" />
+                  <p className="text-xs text-slate-500 uppercase tracking-wide">Completed Questions ({Object.keys(onboardingAnswers).length}/{TOTAL_ONBOARDING_QUESTIONS})</p>
+                  {Object.entries(onboardingAnswers).map(([key, value]) => {
+                    const question = getQuestionById(key);
+                    return (
+                      <div key={key} className="flex items-start gap-2 text-sm">
+                        <div className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0 mt-0.5">
+                          <CheckCircle2 className="w-3 h-3 text-green-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-slate-400 text-xs">{question?.section || 'General'}</p>
+                          <p className="text-white text-sm font-medium">{question?.question || key}</p>
+                          <p className="text-slate-300 text-xs break-words mt-0.5">
+                            {Array.isArray(value) 
+                              ? value.join(', ') 
+                              : String(value).length > 80 
+                                ? String(value).substring(0, 80) + '...' 
+                                : String(value)
+                            }
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-slate-400 text-xs">{key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</p>
-                        <p className="text-white text-sm break-words">
-                          {Array.isArray(value) 
-                            ? value.join(', ') 
-                            : String(value).length > 60 
-                              ? String(value).substring(0, 60) + '...' 
-                              : String(value)
-                          }
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-sm text-slate-500 text-center py-4">
