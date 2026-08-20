@@ -1452,6 +1452,14 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                           const handleSubmit = (value: string | number | string[]) => {
                             const selectedText = Array.isArray(value) ? value.join(', ') : String(value)
                             const selectionMessage = `Selected: ${selectedText}`
+                            
+                            // Track onboarding answers
+                            setOnboardingAnswers(prev => {
+                              const questionKey = `question_${Object.keys(prev).length + 1}`
+                              return { ...prev, [questionKey]: selectedText }
+                            })
+                            setOnboardingStep(prev => prev + 1)
+                            
                             setMessages(prev => [...prev, { role: 'user', content: selectionMessage }])
                             
                             const token = authToken || session?.access_token
