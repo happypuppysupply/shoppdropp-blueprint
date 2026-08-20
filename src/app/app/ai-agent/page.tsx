@@ -1984,7 +1984,7 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                     <Share2 className="w-4 h-4 text-blue-400" />
                     Meta Ads
                   </span>
-                  <Badge className="bg-slate-500/20 text-slate-400 text-xs">Optional</Badge>
+                  <Badge className="bg-yellow-500/20 text-yellow-400 text-xs">Required</Badge>
                 </div>
                 <div className="flex gap-2">
                   <Input 
@@ -2035,39 +2035,149 @@ Next, I need to learn about your store to provide personalized assistance. Let's
 
               <Separator className="bg-white/10" />
 
-              {/* OpenWeb Ninja Research APIs */}
+              {/* RESEARCH APIs - PRIMARY (Not Secondary) */}
               <div className="space-y-2">
-                <p className="text-xs text-slate-500 uppercase tracking-wide">Research APIs (OpenWeb Ninja)</p>
-                
-                {[
-                  { id: 'openwebninja_amazon', name: 'Amazon Data', icon: '📦', color: 'text-orange-400' },
-                  { id: 'openwebninja_walmart', name: 'Walmart Data', icon: '🏪', color: 'text-blue-400' },
-                  { id: 'openwebninja_ebay', name: 'eBay Data', icon: '🏷️', color: 'text-red-400' },
-                  { id: 'openwebninja_product_search', name: 'Product Search', icon: '🔍', color: 'text-purple-400' },
-                  { id: 'openwebninja_ecommerce', name: 'E-commerce Data', icon: '🛒', color: 'text-green-400' },
-                ].map(api => (
-                  <div key={api.id} className="flex items-center gap-2">
-                    <span className="text-sm text-slate-300 flex items-center gap-2 flex-1">
-                      <span>{api.icon}</span>
-                      {api.name}
-                    </span>
-                    <Input 
-                      placeholder="API key..."
-                      value={apiKeyInputs[api.id] || ''}
-                      onChange={(e) => setApiKeyInputs(prev => ({ ...prev, [api.id]: e.target.value }))}
-                      className="bg-white/5 border-white/10 text-white text-xs w-32"
-                    />
-                    <Button 
-                      size="sm" 
-                      variant="ghost" 
-                      className="h-7 text-xs text-violet-400 hover:text-violet-300 px-2"
-                      disabled={savingAPIKey || !apiKeyInputs[api.id]}
-                      onClick={() => saveAPIKey(api.id, apiKeyInputs[api.id])}
-                    >
-                      <CheckCircle2 className="w-3 h-3" />
-                    </Button>
-                  </div>
-                ))}
+                <div className="flex items-center justify-between">
+                  <p className="text-xs text-amber-400 uppercase tracking-wide font-medium">🔍 Research APIs (PRIMARY - Required for Product Research)</p>
+                </div>
+                <p className="text-xs text-slate-500">
+                  These APIs are essential for finding winning products and competitive analysis. NOT optional.
+                </p>
+              </div>
+
+              {/* Amazon Data */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-white flex items-center gap-2">
+                    <span className="text-orange-400">📦</span>
+                    Amazon Data API
+                  </span>
+                  <Badge className="bg-yellow-500/20 text-yellow-400 text-xs">Required</Badge>
+                </div>
+                <div className="flex gap-2">
+                  <Input 
+                    placeholder="Enter OpenWeb Ninja Amazon API key..."
+                    value={apiKeyInputs.openwebninja_amazon || ''}
+                    onChange={(e) => setApiKeyInputs(prev => ({ ...prev, openwebninja_amazon: e.target.value }))}
+                    className="bg-white/5 border-white/10 text-white text-sm flex-1"
+                  />
+                  <Button 
+                    size="sm" 
+                    className="bg-orange-600 hover:bg-orange-500"
+                    disabled={savingAPIKey || !apiKeyInputs.openwebninja_amazon}
+                    onClick={() => saveAPIKey('openwebninja_amazon', apiKeyInputs.openwebninja_amazon)}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Walmart Data */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-white flex items-center gap-2">
+                    <span className="text-blue-400">🏪</span>
+                    Walmart Data API
+                  </span>
+                  <Badge className="bg-yellow-500/20 text-yellow-400 text-xs">Required</Badge>
+                </div>
+                <div className="flex gap-2">
+                  <Input 
+                    placeholder="Enter OpenWeb Ninja Walmart API key..."
+                    value={apiKeyInputs.openwebninja_walmart || ''}
+                    onChange={(e) => setApiKeyInputs(prev => ({ ...prev, openwebninja_walmart: e.target.value }))}
+                    className="bg-white/5 border-white/10 text-white text-sm flex-1"
+                  />
+                  <Button 
+                    size="sm" 
+                    className="bg-blue-600 hover:bg-blue-500"
+                    disabled={savingAPIKey || !apiKeyInputs.openwebninja_walmart}
+                    onClick={() => saveAPIKey('openwebninja_walmart', apiKeyInputs.openwebninja_walmart)}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* eBay Data */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-white flex items-center gap-2">
+                    <span className="text-red-400">🏷️</span>
+                    eBay Data API
+                  </span>
+                  <Badge className="bg-yellow-500/20 text-yellow-400 text-xs">Required</Badge>
+                </div>
+                <div className="flex gap-2">
+                  <Input 
+                    placeholder="Enter OpenWeb Ninja eBay API key..."
+                    value={apiKeyInputs.openwebninja_ebay || ''}
+                    onChange={(e) => setApiKeyInputs(prev => ({ ...prev, openwebninja_ebay: e.target.value }))}
+                    className="bg-white/5 border-white/10 text-white text-sm flex-1"
+                  />
+                  <Button 
+                    size="sm" 
+                    className="bg-red-600 hover:bg-red-500"
+                    disabled={savingAPIKey || !apiKeyInputs.openwebninja_ebay}
+                    onClick={() => saveAPIKey('openwebninja_ebay', apiKeyInputs.openwebninja_ebay)}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Product Search */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-white flex items-center gap-2">
+                    <span className="text-purple-400">🔍</span>
+                    Product Search API
+                  </span>
+                  <Badge className="bg-yellow-500/20 text-yellow-400 text-xs">Required</Badge>
+                </div>
+                <div className="flex gap-2">
+                  <Input 
+                    placeholder="Enter OpenWeb Ninja Product Search API key..."
+                    value={apiKeyInputs.openwebninja_product_search || ''}
+                    onChange={(e) => setApiKeyInputs(prev => ({ ...prev, openwebninja_product_search: e.target.value }))}
+                    className="bg-white/5 border-white/10 text-white text-sm flex-1"
+                  />
+                  <Button 
+                    size="sm" 
+                    className="bg-purple-600 hover:bg-purple-500"
+                    disabled={savingAPIKey || !apiKeyInputs.openwebninja_product_search}
+                    onClick={() => saveAPIKey('openwebninja_product_search', apiKeyInputs.openwebninja_product_search)}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* E-commerce Data */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-white flex items-center gap-2">
+                    <span className="text-green-400">🛒</span>
+                    E-commerce Data API
+                  </span>
+                  <Badge className="bg-yellow-500/20 text-yellow-400 text-xs">Required</Badge>
+                </div>
+                <div className="flex gap-2">
+                  <Input 
+                    placeholder="Enter OpenWeb Ninja E-commerce API key..."
+                    value={apiKeyInputs.openwebninja_ecommerce || ''}
+                    onChange={(e) => setApiKeyInputs(prev => ({ ...prev, openwebninja_ecommerce: e.target.value }))}
+                    className="bg-white/5 border-white/10 text-white text-sm flex-1"
+                  />
+                  <Button 
+                    size="sm" 
+                    className="bg-green-600 hover:bg-green-500"
+                    disabled={savingAPIKey || !apiKeyInputs.openwebninja_ecommerce}
+                    onClick={() => saveAPIKey('openwebninja_ecommerce', apiKeyInputs.openwebninja_ecommerce)}
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
