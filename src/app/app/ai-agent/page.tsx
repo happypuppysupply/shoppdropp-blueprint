@@ -10,7 +10,7 @@ import {
   Bot, Send, Sparkles, Server, Store, AlertCircle, CheckCircle2, 
   Loader2, Wallet, TrendingUp, Settings, Activity, Zap, 
   Shield, CreditCard, ChevronRight, Rocket, LayoutTemplate, Brain, X, AlertTriangle,
-  CheckSquare, Square
+  CheckSquare, Square, Lock
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
@@ -416,6 +416,10 @@ export default function AIAgentPage() {
   
   // Sidebar view state
   const [sidebarView, setSidebarView] = useState<'setup' | 'vps'>('setup')
+  
+  // Onboarding state
+  const [onboardingStep, setOnboardingStep] = useState(0)
+  const [onboardingAnswers, setOnboardingAnswers] = useState<Record<string, string>>({})
   
   // Worker & Provisioning state
   const [workerStatus, setWorkerStatus] = useState<'loading' | 'provisioning' | 'running' | 'error' | 'none'>('loading')
@@ -1615,6 +1619,156 @@ Next, I need to learn about your store to provide personalized assistance. Let's
       {/* RIGHT SIDEBAR - Gateway & Config */}
       <div className="w-80 flex-shrink-0 space-y-4 overflow-y-auto">
         
+        {/* BACK BUTTON - When viewing detail */}
+        {sidebarView !== 'setup' && (
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="text-slate-400 hover:text-white -ml-2"
+            onClick={() => setSidebarView('setup')}
+          >
+            <ChevronRight className="w-4 h-4 rotate-180 mr-1" />
+            Back to Setup
+          </Button>
+        )}
+        
+        {/* SETUP PROGRESS - Default View */}
+        {sidebarView === 'setup' && (
+        <Card className="bg-[#111118] border-white/10">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm flex items-center gap-2 text-slate-400">
+              <Rocket className="w-4 h-4 text-violet-400" />
+              Setup Progress
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {/* VPS Stage */}
+            <div 
+              className="space-y-2 p-2 -m-2 rounded-lg cursor-pointer hover:bg-white/5 transition-colors"
+              onClick={() => setSidebarView('vps')}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-white font-medium flex items-center gap-2">
+                  <Server className="w-4 h-4 text-blue-400" />
+                  VPS Provisioned
+                </span>
+                {activeWorker ? (
+                  <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    Ready
+                  </Badge>
+                ) : (
+                  <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-xs">
+                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    Pending
+                  </Badge>
+                )}
+              </div>
+              {activeWorker && (
+                <p className="text-xs text-slate-500">
+                  Worker online at {activeWorker.ip || '...'}
+                </p>
+              )}
+            </div>
+            
+            <Separator className="bg-white/10" />
+            
+            {/* Onboarding Stage */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-white font-medium">Onboarding</span>
+                {workflowStatus?.onboardingComplete ? (
+                  <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    Complete
+                  </Badge>
+                ) : (
+                  <Badge className="bg-violet-500/20 text-violet-400 border-violet-500/30 text-xs">
+                    {onboardingStep > 0 ? `Step ${onboardingStep}/6` : 'Not Started'}
+                  </Badge>
+                )}
+              </div>
+              
+              {/* Progress bar */}
+              <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                <div 
+                  className="h-full rounded-full bg-violet-500 transition-all"
+                  style={{ width: `${workflowStatus?.onboardingComplete ? 100 : (onboardingStep / 6) * 100}%` }}
+                />
+              </div>
+              
+              {/* Completed steps */}
+              {Object.entries(onboardingAnswers).slice(0, 2).map(([key, value]) => (
+                <div key={key} className="flex items-start gap-2 text-xs">
+                  <CheckCircle2 className="w-3 h-3 text-green-400 mt-0.5 flex-shrink-0" />
+                  <div className="truncate">
+                    <span className="text-slate-400">{key}:</span>
+                    <span className="text-white ml-1">{value}</span>
+                  </div>
+                </div>
+              ))}
+              {Object.keys(onboardingAnswers).length > 2 && (
+                <p className="text-xs text-slate-500">+{Object.keys(onboardingAnswers).length - 2} more</p>
+              )}
+            </div>
+            
+            <Separator className="bg-white/10" />
+            
+            {/* API Keys Stage */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-white font-medium">API Keys</span>
+                {workflowStatus?.canStartWorkflow ? (
+                  <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    Connected
+                  </Badge>
+                ) : (
+                  <Badge className={`text-xs ${workflowStatus?.onboardingComplete ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' : 'bg-slate-500/20 text-slate-400 border-slate-500/30'}`}>
+                    {workflowStatus?.onboardingComplete ? 'Pending' : 'Locked'}
+                  </Badge>
+                )}
+              </div>
+              {!workflowStatus?.onboardingComplete && (
+                <p className="text-xs text-slate-500">
+                  Complete onboarding to unlock
+                </p>
+              )}
+            </div>
+            
+            <Separator className="bg-white/10" />
+            
+            {/* AI Workflow Stage */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-white font-medium">AI Workflow</span>
+                {workflowStatus?.canStartWorkflow ? (
+                  <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-xs">
+                    <Zap className="w-3 h-3 mr-1" />
+                    Ready
+                  </Badge>
+                ) : (
+                  <Badge className="bg-slate-500/20 text-slate-400 border-slate-500/30 text-xs">
+                    <Lock className="w-3 h-3 mr-1" />
+                    Locked
+                  </Badge>
+                )}
+              </div>
+              {workflowStatus?.canStartWorkflow && (
+                <Button 
+                  size="sm" 
+                  className="w-full bg-violet-600 hover:bg-violet-500"
+                  onClick={() => setInput('start my store workflow')}
+                >
+                  <Rocket className="w-4 h-4 mr-2" />
+                  Start Workflow
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+        )}
+
         {/* Gateway Status */}
         <Card className="bg-[#111118] border-white/10">
           <CardHeader className="pb-3">
