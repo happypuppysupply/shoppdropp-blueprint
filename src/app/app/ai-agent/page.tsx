@@ -19,6 +19,7 @@ import { SliderForm } from '@/components/agent/SliderForm'
 import { NumberForm } from '@/components/agent/NumberForm'
 import { ConnectAPIForm } from '@/components/agent/ConnectAPIForm'
 import { TextForm } from '@/components/agent/TextForm'
+import { APISplashScreen } from '@/components/agent/APISplashScreen'
 
 interface Message {
   role: 'user' | 'assistant' | 'system'
@@ -427,6 +428,9 @@ export default function AIAgentPage() {
   const [onboardingStep, setOnboardingStep] = useState(0)
   const [onboardingAnswers, setOnboardingAnswers] = useState<Record<string, string>>({})
   
+  // API Splash Screen state
+  const [showAPISplash, setShowAPISplash] = useState(false)
+  
   // Worker & Provisioning state
   const [workerStatus, setWorkerStatus] = useState<'loading' | 'provisioning' | 'running' | 'error' | 'none'>('loading')
   const [provisionError, setProvisionError] = useState<string | null>(null)
@@ -698,14 +702,9 @@ export default function AIAgentPage() {
     setShowOnboarding(false)
     loadWorkflowStatus()
     
-    // Auto-trigger API key collection after onboarding
+    // Show API splash screen after onboarding
     setTimeout(() => {
-      const apiKeyMessage = "Great! Your store is configured. Now let's connect your platforms. What APIs do you have? Shopify? CJ Dropshipping? Meta Ads?"
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: apiKeyMessage + '\n\n[[FORM]]\n{"type":"connect","services":[{"id":"shopify","name":"Shopify","description":"Store API"},{"id":"cj","name":"CJ Dropshipping","description":"Supplier API"},{"id":"meta","name":"Meta Ads","description":"Advertising API"},{"id":"openwebninja","name":"OpenWeb Ninja","description":"Research APIs (Amazon, Walmart, eBay)"}]}\n[[/FORM]]',
-        timestamp: new Date().toISOString()
-      }])
+      setShowAPISplash(true)
     }, 500)
   }
 
@@ -944,6 +943,11 @@ Next, I need to learn about your store to provide personalized assistance. Let's
 
       const data = await response.json()
       loadBudget()
+      
+      // Check if we should show API splash screen
+      if (data.show_api_splash) {
+        setShowAPISplash(true)
+      }
       
       let responseContent = data.response
       if (data.budget_alert) {
@@ -1652,6 +1656,29 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                 </div>
                 <div className="max-w-[80%] p-3 rounded-lg bg-white/5 text-slate-200">
                   <ThinkingDots />
+                </div>
+              </div>
+            )}
+            
+            {/* API Splash Screen - shown after onboarding complete */}
+            {showAPISplash && (
+              <div className="flex gap-3">
+                <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 bg-pink-500/20">
+                  <Bot className="w-4 h-4 text-pink-400" />
+                </div>
+                <div className="max-w-[80%] flex-1">
+                  <APISplashScreen 
+                    onContinue={() => {
+                      setShowAPISplash(false)
+                      setSidebarView('api')
+                      // Add a message to guide them
+                      setMessages(prev => [...prev, {
+                        role: 'assistant',
+                        content: 'Perfect! Now enter your API keys in the **API Keys** section of the right sidebar. Click each platform, paste your key, and click Save.',
+                        timestamp: new Date().toISOString()
+                      }])
+                    }}
+                  />
                 </div>
               </div>
             )}
