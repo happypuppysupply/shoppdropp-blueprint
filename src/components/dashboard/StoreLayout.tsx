@@ -285,20 +285,30 @@ export function StoreLayout({ children }: { children: React.ReactNode }) {
                     setSelectedStore('demo')
                     setSelectedPage('overview')
                   }}
-                  className="w-full p-3 rounded-xl bg-gradient-to-r from-violet-500/20 to-pink-500/20 border border-violet-500/30 hover:border-violet-500/50 transition-all"
+                  className={`w-full p-3 rounded-xl border transition-all ${
+                    selectedStore === 'demo' 
+                      ? 'bg-gradient-to-r from-violet-500/40 to-pink-500/40 border-violet-500 shadow-lg shadow-violet-500/20' 
+                      : 'bg-gradient-to-r from-violet-500/20 to-pink-500/20 border-violet-500/30 hover:border-violet-500/50'
+                  }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-violet-500/30 flex items-center justify-center">
-                      <Store className="w-5 h-5 text-violet-300" />
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                      selectedStore === 'demo' ? 'bg-violet-500/50' : 'bg-violet-500/30'
+                    }`}>
+                      <Store className={`w-5 h-5 ${selectedStore === 'demo' ? 'text-white' : 'text-violet-300'}`} />
                     </div>
                     <div className="flex-1 text-left">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium text-white">Demo Store</p>
-                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-violet-500/30 text-violet-300">DEMO</span>
+                        <p className={`text-sm font-medium ${selectedStore === 'demo' ? 'text-white' : 'text-white'}`}>Demo Store</p>
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] ${
+                          selectedStore === 'demo' 
+                            ? 'bg-pink-500/50 text-white border border-pink-400/50' 
+                            : 'bg-violet-500/30 text-violet-300'
+                        }`}>DEMO</span>
                       </div>
                       <p className="text-xs text-slate-400">See how it works</p>
                     </div>
-                    <ChevronRight className="w-4 h-4 text-violet-400" />
+                    <ChevronRight className={`w-4 h-4 ${selectedStore === 'demo' ? 'text-pink-400' : 'text-violet-400'}`} />
                   </div>
                 </button>
               </div>
@@ -323,16 +333,22 @@ export function StoreLayout({ children }: { children: React.ReactNode }) {
                         setSelectedStore(store.id)
                         setSelectedPage('overview')
                       }}
-                      className="w-full px-4 py-3 flex items-center gap-3 hover:bg-white/5 transition-colors border-l-2 border-transparent hover:border-violet-500"
+                      className={`w-full px-4 py-3 flex items-center gap-3 transition-colors border-l-2 ${
+                        selectedStore === store.id
+                          ? 'bg-violet-500/10 border-violet-500 text-violet-400'
+                          : 'hover:bg-white/5 border-transparent hover:border-violet-500 text-slate-400'
+                      }`}
                     >
-                      <div className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center flex-shrink-0">
-                        <Store className="w-4 h-4 text-violet-400" />
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                        selectedStore === store.id ? 'bg-violet-500/30' : 'bg-violet-500/20'
+                      }`}>
+                        <Store className={`w-4 h-4 ${selectedStore === store.id ? 'text-violet-300' : 'text-violet-400'}`} />
                       </div>
                       <div className="flex-1 text-left min-w-0">
-                        <p className="text-sm font-medium text-white truncate">{store.name}</p>
+                        <p className={`text-sm font-medium truncate ${selectedStore === store.id ? 'text-violet-300' : 'text-white'}`}>{store.name}</p>
                         <p className="text-xs text-slate-500 truncate">{store.url.replace('https://', '')}</p>
                       </div>
-                      <ChevronRight className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                      <ChevronRight className={`w-4 h-4 flex-shrink-0 ${selectedStore === store.id ? 'text-violet-400' : 'text-slate-400'}`} />
                     </button>
                   ))
                 )}
