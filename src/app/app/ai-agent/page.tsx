@@ -281,6 +281,9 @@ export default function AIAgentPage() {
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<Message[]>([])
   const [loading, setLoading] = useState(false)
+  
+  // Get storage key for current store's conversation
+  const getStorageKey = useCallback((storeId: string) => `ai_chat_${storeId}`, [])
   const [context, setContext] = useState<ContextData | null>(null)
   const [loadingContext, setLoadingContext] = useState(true)
   const [budget, setBudget] = useState<BudgetData | null>(null)
@@ -334,6 +337,32 @@ export default function AIAgentPage() {
       loadWorkflowStatus()
     }
   }, [authLoading, isAuthenticated])
+
+  // Load saved conversation when store is available
+  useEffect(() => {
+    const storeId = context?.stores?.[0]?.id
+    if (storeId) {
+      const storageKey = getStorageKey(storeId)
+      const saved = localStorage.getItem(storageKey)
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved)
+          setMessages(parsed)
+        } catch (e) {
+          console.error('Failed to load saved conversation:', e)
+        }
+      }
+    }
+  }, [context?.stores, getStorageKey])
+
+  // Save conversation to localStorage whenever messages change
+  useEffect(() => {
+    const storeId = context?.stores?.[0]?.id
+    if (storeId && messages.length > 0) {
+      const storageKey = getStorageKey(storeId)
+      localStorage.setItem(storageKey, JSON.stringify(messages))
+    }
+  }, [messages, context?.stores, getStorageKey])
 
   // Show onboarding if workflow not ready and has active store
   useEffect(() => {
@@ -604,11 +633,8 @@ export default function AIAgentPage() {
         const data = await response.json()
         if (data.configured) {
           setAiConfig({ provider: data.provider, model: data.model })
-          // Add welcome message if AI is configured
-          setMessages([{ 
-            role: 'assistant', 
-            content: "Hello! I'm your ShoppDropp AI assistant. I can help you:\n\n• Provision and manage VPS workers\n• Monitor store performance\n• Run automation tasks\n• Control your dropshipping operations\n\nWhat would you like to do today?" 
-          }])
+          // Only add welcome message if no saved conversation exists
+          // (The saved conversation will be loaded by the other useEffect)
         }
       }
     } catch (error) {
@@ -654,8 +680,8 @@ export default function AIAgentPage() {
       await loadContext()
       await loadWorkflowStatus()
       
-      // Show success message and trigger onboarding
-      setMessages([{ 
+      // Show success message and trigger onboarding (append to existing conversation)
+      setMessages(prev => [...prev, { 
         role: 'assistant', 
         content: `✅ **AI Configuration Saved!**
 
@@ -860,7 +886,7 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                           throw new Error(error.error || 'Platform AI not available')
                         }
                         setAiConfig({ provider: 'openrouter', model: 'moonshotai/kimi-k2.5' })
-                        setMessages([{ 
+                        setMessages(prev => [...prev, { 
                           role: 'assistant', 
                           content: `✅ **ShoppDropp AI Activated!**
 
