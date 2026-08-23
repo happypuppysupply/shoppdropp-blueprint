@@ -48,8 +48,6 @@ export default function AIAgentPage() {
     }
   }, [isAuthenticated])
 
-  const [initError, setInitError] = useState<string | null>(null)
-
   const initialize = async () => {
     try {
       setInitError(null)
