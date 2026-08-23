@@ -879,9 +879,17 @@ Your ${AI_PROVIDERS.find(p => p.id === selectedProvider)?.name} integration is n
 Next, I need to learn about your store to provide personalized assistance. Let's complete your store configuration!` 
       }])
       
-      // Auto-show onboarding if not complete
+      // Auto-show inline onboarding if not complete
       setTimeout(() => {
-        setShowOnboarding(true)
+        setShowInlineOnboarding(true)
+        setMessages(prev => {
+          const hasOnboardingMsg = prev.some(m => m.role === 'assistant' && m.content.includes('complete your store setup'))
+          if (hasOnboardingMsg) return prev
+          return [...prev, {
+            role: 'assistant',
+            content: 'Welcome! To get started, I need to learn about your store. Please complete the setup below:',
+          }]
+        })
       }, 1500)
       
     } catch (error: any) {
@@ -1088,7 +1096,17 @@ You're now using our platform AI (Kimi K2.5). This is perfect for getting starte
 
 Next, I need to learn about your store to provide personalized assistance. Let's complete your store configuration, and I'll also collect your API keys for Meta Ads, CJ Dropshipping, Shopify, and Research APIs.` 
                         }])
-                        setTimeout(() => setShowOnboarding(true), 1500)
+                        setTimeout(() => {
+                          setShowInlineOnboarding(true)
+                          setMessages(prev => {
+                            const hasOnboardingMsg = prev.some(m => m.role === 'assistant' && m.content.includes('complete your store setup'))
+                            if (hasOnboardingMsg) return prev
+                            return [...prev, {
+                              role: 'assistant',
+                              content: 'Welcome! To get started, I need to learn about your store. Please complete the setup below:',
+                            }]
+                          })
+                        }, 1500)
                       } catch (error: any) {
                         setAiConfigError(error.message || 'Failed to activate platform AI')
                       } finally {
