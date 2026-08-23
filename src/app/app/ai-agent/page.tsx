@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
-import { InlineOnboarding } from '@/components/dashboard/InlineOnboarding'
+import { AIOnboarding } from '@/components/dashboard/AIOnboarding'
 import { SliderForm } from '@/components/agent/SliderForm'
 import { NumberForm } from '@/components/agent/NumberForm'
 import { ConnectAPIForm } from '@/components/agent/ConnectAPIForm'
@@ -722,6 +722,46 @@ export default function AIAgentPage() {
     setTimeout(() => {
       setShowAPISplash(true)
     }, 500)
+  }
+
+  // Start research workflow after onboarding
+  async function startResearchWorkflow() {
+    try {
+      const token = authToken || session?.access_token
+      if (!token || !activeStore?.id) return
+
+      setLoading(true)
+      
+      // Send command to start research workflow
+      const response = await fetch(`${API_URL}/api/ai-chat/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          message: 'Start product research workflow using system OpenWeb Ninja APIs',
+          store_id: activeStore.id,
+          use_system_apis: true
+        }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setMessages(prev => [...prev, { 
+          role: 'assistant', 
+          content: data.response || 'Research workflow initiated. Analyzing market data...'
+        }])
+      }
+    } catch (error) {
+      console.error('Failed to start research workflow:', error)
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: 'I encountered an error starting the research workflow. Please try saying "start research" to begin manually.'
+      }])
+    } finally {
+      setLoading(false)
+    }
   }
 
   // Save API key to backend
@@ -1690,6 +1730,37 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                 </div>
                 <div className="max-w-[80%] p-3 rounded-lg bg-white/5 text-slate-200">
                   <ThinkingDots />
+                </div>
+              </div>
+            )}
+            
+            {/* AI Onboarding */}
+            {showInlineOnboarding && activeStore && (
+              <div className="flex gap-3">
+                <div className="w-8" />
+                <div className="flex-1 max-w-[90%]">
+                  <div className="bg-[#111118] border border-violet-500/30 rounded-2xl overflow-hidden max-h-[600px]">
+                    <AIOnboarding 
+                      storeId={activeStore.id}
+                      onComplete={() => {
+                        setShowInlineOnboarding(false)
+                        loadWorkflowStatus()
+                        // Start research workflow message
+                        setTimeout(() => {
+                          setMessages(prev => [...prev, {
+                            role: 'assistant',
+                            content: '🎯 **Starting Product Research Workflow**\n\nNow I\'ll analyze market opportunities in your niche using our research APIs. This includes:\n• Amazon best-seller analysis\n• Walmart pricing intelligence\n• eBay trending products\n• Google Trends seasonality data\n\nLet me find high-margin products that match your criteria...'
+                          }])
+                        }, 1000)
+                      }}
+                      onRestart={() => {
+                        setMessages([{
+                          role: 'assistant',
+                          content: 'Onboarding restarted. Let\'s begin...'
+                        }])
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             )}
