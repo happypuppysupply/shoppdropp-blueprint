@@ -261,13 +261,13 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
             { key: 'openwebninja_ecommerce', value: researchAPIs.ecommerce },
           ]
 
-          for (const api of apisToSave) {
-            if (api.value.trim()) {
+          for (const apiItem of apisToSave) {
+            if (apiItem.value.trim()) {
               await api.request(`/stores/${storeId}/credentials`, {
                 method: 'POST',
                 body: JSON.stringify({
-                  type: api.key,
-                  credentials: { api_key: api.value },
+                  type: apiItem.key,
+                  credentials: { api_key: apiItem.value },
                 }),
               })
             }
