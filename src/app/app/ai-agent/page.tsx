@@ -419,6 +419,8 @@ export default function AIAgentPage() {
   const [apiKeyInput, setApiKeyInput] = useState('')
   const [savingAIConfig, setSavingAIConfig] = useState(false)
   const [aiConfigError, setAiConfigError] = useState('')
+  const [isLoadingAIConfig, setIsLoadingAIConfig] = useState(true)
+  const [backendError, setBackendError] = useState<string | null>(null)
   
   // Onboarding & Workflow state
   const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatus | null>(null)
@@ -528,30 +530,63 @@ export default function AIAgentPage() {
   //   }
   // }, [workflowStatus, hasGreeted, loadingWorkflow, aiConfig])
 
-  // Auto-configure ShoppDropp AI on load if no config exists
+  // Wake up backend and auto-configure AI
   useEffect(() => {
-    const autoConfigureAI = async () => {
-      if (!isAuthenticated || aiConfig !== null) return
+    const wakeAndConfigure = async () => {
+      if (!isAuthenticated) return
+      
+      setIsLoadingAIConfig(true)
+      setBackendError(null)
       
       try {
         const token = authToken || session?.access_token
-        if (!token) return
+        if (!token) {
+          setIsLoadingAIConfig(false)
+          return
+        }
         
-        // Check if already configured
+        // First, wake up the backend with a health check (30s timeout)
+        console.log('[AI] Waking up backend...')
+        const healthController = new AbortController()
+        const healthTimeout = setTimeout(() => healthController.abort(), 30000)
+        
+        try {
+          const healthRes = await fetch(`${API_URL}/health`, {
+            signal: healthController.signal
+          })
+          clearTimeout(healthTimeout)
+          console.log('[AI] Backend awake:', healthRes.status)
+        } catch (e) {
+          clearTimeout(healthTimeout)
+          console.log('[AI] Health check failed, proceeding anyway...')
+        }
+        
+        // Check if already configured (with timeout)
+        console.log('[AI] Checking existing config...')
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 15000)
+        
         const response = await fetch(`${API_URL}/api/ai/config`, {
           headers: { 'Authorization': `Bearer ${token}` },
+          signal: controller.signal
         })
+        clearTimeout(timeout)
         
         if (response.ok) {
           const data = await response.json()
           if (data.configured) {
+            console.log('[AI] Already configured:', data.provider)
             setAiConfig({ provider: data.provider, model: data.model })
+            setIsLoadingAIConfig(false)
             return
           }
         }
         
         // Auto-configure with ShoppDropp AI
         console.log('[AI] Auto-configuring with ShoppDropp AI...')
+        const saveController = new AbortController()
+        const saveTimeout = setTimeout(() => saveController.abort(), 15000)
+        
         const saveResponse = await fetch(`${API_URL}/api/ai/config`, {
           method: 'POST',
           headers: {
@@ -563,19 +598,29 @@ export default function AIAgentPage() {
             model: 'moonshotai/kimi-k2.5',
             usePlatformAI: true,
           }),
+          signal: saveController.signal
         })
+        clearTimeout(saveTimeout)
         
-        if (saveResponse.ok) {
-          setAiConfig({ provider: 'openrouter', model: 'moonshotai/kimi-k2.5' })
-          console.log('[AI] Auto-configured successfully')
+        } else {
+          const errData = await saveResponse.json().catch(() => ({}))
+          console.error('[AI] Auto-configure failed:', errData.error || saveResponse.status)
+          setBackendError(errData.error || 'Failed to configure AI')
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('[AI] Auto-configure failed:', error)
+        if (error.name === 'AbortError') {
+          setBackendError('Backend is waking up... Please wait 30 seconds and refresh.')
+        } else {
+          setBackendError('Connection failed. Backend may be sleeping.')
+        }
+      } finally {
+        setIsLoadingAIConfig(false)
       }
     }
     
-    autoConfigureAI()
-  }, [isAuthenticated, aiConfig, authToken, session])
+    wakeAndConfigure()
+  }, [isAuthenticated, authToken, session])
 
   // Connect WebSocket when AI is configured
   useEffect(() => {
@@ -1117,6 +1162,63 @@ Next, I need to learn about your store to provide personalized assistance. Let's
   // AI Configuration UI
   const renderAIConfig = () => {
     if (aiConfig) return null
+
+    // Show loading state while checking/configuring
+    if (isLoadingAIConfig) {
+      return (
+        <Card className="bg-gradient-to-br from-violet-950/50 to-pink-950/50 border-violet-500/30 mb-4">
+          <CardContent className="p-6">
+            <div className="flex items-center justify-center gap-3">
+              <Loader2 className="w-6 h-6 text-violet-400 animate-spin" />
+              <span className="text-white">Connecting to ShoppDropp AI...</span>
+            </div>
+            {backendError && (
+              <p className="mt-3 text-sm text-yellow-400 text-center">{backendError}</p>
+            )}
+          </CardContent>
+        </Card>
+      )
+    }
+
+    // Show backend error with retry option
+    if (backendError && !aiConfigStep) {
+      return (
+        <Card className="bg-gradient-to-br from-violet-950/50 to-pink-950/50 border-violet-500/30 mb-4">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-red-500/20 rounded-xl">
+                <AlertCircle className="w-6 h-6 text-red-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-white mb-2">Connection Issue</h3>
+                <p className="text-slate-300 mb-4">{backendError}</p>
+                <div className="space-y-3">
+                  <Button 
+                    onClick={() => {
+                      setBackendError(null)
+                      setIsLoadingAIConfig(true)
+                      // Retry
+                      window.location.reload()
+                    }}
+                    className="w-full bg-violet-500 hover:bg-violet-600"
+                  >
+                    <Loader2 className="w-4 h-4 mr-2" />
+                    Retry Connection
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => setAiConfigStep('provider')}
+                    className="w-full"
+                  >
+                    Configure Manually
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )
+    }
 
     if (!aiConfigStep) {
       return (
@@ -1954,25 +2056,33 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                 </div>
               )}
               
-              {/* Provision Button when no worker */}
-              {!activeWorker && workerStatus !== 'provisioning' && (
+              {/* Provision/Reprovision Button */}
+              {workerStatus !== 'provisioning' && (
                 <div className="mt-3">
                   <Button 
                     size="sm" 
-                    className="w-full bg-gradient-to-r from-violet-500 to-pink-500 hover:from-violet-600 hover:to-pink-600"
+                    variant={activeWorker ? "outline" : "default"}
+                    className={activeWorker 
+                      ? "w-full border-white/20 text-slate-300 hover:bg-white/5" 
+                      : "w-full bg-violet-500 hover:bg-violet-600"
+                    }
                     onClick={(e) => {
                       e.stopPropagation()
-                      setInput('provision a vps worker')
+                      if (activeWorker && confirm('This will destroy the current VPS and create a new one. Continue?')) {
+                        setInput('reprovision vps worker')
+                      } else {
+                        setInput('provision a vps worker')
+                      }
                     }}
                   >
                     <Rocket className="w-4 h-4 mr-2" />
-                    Provision VPS
+                    {activeWorker ? 'Reprovision VPS' : 'Provision VPS'}
                   </Button>
                 </div>
               )}
               
               {activeWorker && (
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 mt-2">
                   Worker online at {activeWorker.ip || '...'}
                 </p>
               )}
