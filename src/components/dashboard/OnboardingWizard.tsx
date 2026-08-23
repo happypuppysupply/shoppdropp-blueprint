@@ -73,7 +73,7 @@ const sectionIcons: Record<string, any> = {
 }
 
 // Integration API key steps - now AFTER all 27 questions
-// OpenWeb Ninja has 3 APIs: Amazon, Walmart, eBay
+// OpenWeb Ninja has 5 APIs: Amazon, Walmart, eBay, Product Search, E-commerce Data
 const INTEGRATION_STEPS: OnboardingStep[] = [
   {
     stepNumber: 1,
@@ -104,33 +104,62 @@ const INTEGRATION_STEPS: OnboardingStep[] = [
   },
   {
     stepNumber: 4,
+    stepName: 'research_api_choice',
+    prompt: 'How would you like to handle product research? Choose to use ShoppDropp\'s research APIs (powered by OpenWeb Ninja) or connect your own.',
+    inputType: 'single_select',
+    options: [
+      { id: 'use_shoppdropp', name: 'Use ShoppDropp Research APIs', description: 'Use our platform\'s OpenWeb Ninja integration - no setup needed' },
+      { id: 'use_own', name: 'Connect My Own APIs', description: 'Enter your own OpenWeb Ninja API keys for full control' },
+    ],
+    validation: { required: true }
+  },
+  {
+    stepNumber: 5,
     stepName: 'openweb_ninja_amazon',
     prompt: 'Connect OpenWeb Ninja Amazon API for real-time Amazon product data, pricing analysis, and competitor research. This helps the AI find profitable products and analyze market demand on Amazon.',
     inputType: 'api_key',
     serviceType: 'openweb_ninja_amazon',
-    docsUrl: 'https://openwebninja.io/docs/amazon',
-    validation: { required: false }
-  },
-  {
-    stepNumber: 5,
-    stepName: 'openweb_ninja_walmart',
-    prompt: 'Connect OpenWeb Ninja Walmart API for Walmart marketplace product research and pricing intelligence. This helps the AI identify products with good margins on Walmart.',
-    inputType: 'api_key',
-    serviceType: 'openweb_ninja_walmart',
-    docsUrl: 'https://openwebninja.io/docs/walmart',
+    docsUrl: 'https://app.openwebninja.com/api/realtime-amazon-data/overview',
     validation: { required: false }
   },
   {
     stepNumber: 6,
-    stepName: 'openweb_ninja_ebay',
-    prompt: 'Connect OpenWeb Ninja eBay API for eBay marketplace analysis and trending product discovery. This helps the AI understand what products are selling well on eBay.',
+    stepName: 'openweb_ninja_walmart',
+    prompt: 'Connect OpenWeb Ninja Walmart API for Walmart marketplace product research and pricing intelligence. This helps the AI identify products with good margins on Walmart.',
     inputType: 'api_key',
-    serviceType: 'openweb_ninja_ebay',
-    docsUrl: 'https://openwebninja.io/docs/ebay',
+    serviceType: 'openweb_ninja_walmart',
+    docsUrl: 'https://app.openwebninja.com/api/realtime-walmart-data/overview',
     validation: { required: false }
   },
   {
     stepNumber: 7,
+    stepName: 'openweb_ninja_ebay',
+    prompt: 'Connect OpenWeb Ninja eBay API for eBay marketplace analysis and trending product discovery. This helps the AI understand what products are selling well on eBay.',
+    inputType: 'api_key',
+    serviceType: 'openweb_ninja_ebay',
+    docsUrl: 'https://app.openwebninja.com/api/realtime-ebay-data/overview',
+    validation: { required: false }
+  },
+  {
+    stepNumber: 8,
+    stepName: 'openweb_ninja_product_search',
+    prompt: 'Connect OpenWeb Ninja Real-Time Product Search API for lightweight, fast product lookups across multiple marketplaces. Great for quick price comparisons and availability checks.',
+    inputType: 'api_key',
+    serviceType: 'openweb_ninja_product_search',
+    docsUrl: 'https://app.openwebninja.com/api/realtime-product-search/overview',
+    validation: { required: false }
+  },
+  {
+    stepNumber: 9,
+    stepName: 'openweb_ninja_ecommerce',
+    prompt: 'Connect OpenWeb Ninja Real-Time E-commerce Data API for unified product data across multiple platforms. Provides comprehensive product information, reviews, and pricing history.',
+    inputType: 'api_key',
+    serviceType: 'openweb_ninja_ecommerce',
+    docsUrl: 'https://app.openwebninja.com/api/realtime-ecommerce-data/overview',
+    validation: { required: false }
+  },
+  {
+    stepNumber: 10,
     stepName: 'google_trends',
     prompt: 'Connect Google Trends API to analyze search trends and seasonality. This helps the AI identify rising products and optimal timing for launches.',
     inputType: 'api_key',
@@ -222,6 +251,8 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
     }
   }
 
+  const [useOwnResearchAPIs, setUseOwnResearchAPIs] = useState<boolean | null>(null)
+
   const handleContinue = async () => {
     // Validate
     if (stepData?.validation?.required) {
@@ -279,6 +310,40 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
             onComplete()
           }, 2000)
         } else {
+          // Check if we should skip OpenWeb Ninja steps
+          const nextStep = INTEGRATION_STEPS[integrationIndex + 1]
+          if (useOwnResearchAPIs === false && 
+              nextStep?.serviceType?.startsWith('openweb_ninja')) {
+            // Skip to Google Trends (last step)
+            setCurrentStep(totalSteps + INTEGRATION_STEPS.length)
+          } else {
+            setCurrentStep(currentStep + 1)
+          }
+        }
+      } else if (isIntegrationPhase && stepData?.stepName === 'research_api_choice') {
+        // Handle research API choice
+        const choice = selectedValues[0]
+        const useOwn = choice === 'use_own'
+        setUseOwnResearchAPIs(useOwn)
+        
+        // Save the choice
+        await api.request(`/stores/${storeId}/credentials`, {
+          method: 'POST',
+          body: JSON.stringify({
+            type: 'research_api_choice',
+            credentials: {
+              choice: choice,
+              use_shoppdropp: !useOwn,
+            },
+          }),
+        })
+        
+        setCompletedSteps(prev => [...prev, currentStep])
+        
+        if (!useOwn) {
+          // Skip to Google Trends (last step)
+          setCurrentStep(totalSteps + INTEGRATION_STEPS.length)
+        } else {
           setCurrentStep(currentStep + 1)
         }
       } else {
@@ -333,7 +398,13 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
   const getStepIcon = () => {
     if (isIntegrationPhase) {
       const integrationIndex = currentStep - totalSteps - 1
-      const serviceType = INTEGRATION_STEPS[integrationIndex]?.serviceType
+      const step = INTEGRATION_STEPS[integrationIndex]
+      const serviceType = step?.serviceType
+      
+      if (step?.stepName === 'research_api_choice') {
+        return Search
+      }
+      
       switch (serviceType) {
         case 'meta_ads': return Megaphone
         case 'cj_dropshipping': return Truck
@@ -341,6 +412,8 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
         case 'openweb_ninja_amazon': return Search
         case 'openweb_ninja_walmart': return Search
         case 'openweb_ninja_ebay': return Search
+        case 'openweb_ninja_product_search': return Search
+        case 'openweb_ninja_ecommerce': return Search
         case 'google_trends': return BarChart3
         default: return Key
       }
