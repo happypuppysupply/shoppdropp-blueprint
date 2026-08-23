@@ -12,6 +12,7 @@ import {
 import { useAuth } from '@/hooks/useAuth'
 import { SimpleOnboarding } from '@/components/dashboard/SimpleOnboarding'
 import { APIConnectForm } from '@/components/dashboard/APIConnectForm'
+import { ErrorBoundary } from '@/components/ErrorBoundary'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -70,11 +71,8 @@ export default function AIAgentPage() {
         const newStore = await createRes.json()
         setStoreId(newStore.id)
         
-        // Welcome message
-        setMessages([{
-          role: 'assistant',
-          content: '👋 Welcome! I\'m your AI Business Advisor. I\'ve helped build 8-figure e-commerce brands. Let\'s start by understanding your business goals.'
-        }])
+        // Check workflow status for new store (will be at onboarding stage)
+        checkWorkflowStatus(newStore.id)
       }
     } catch (error) {
       console.error('Failed to initialize:', error)
@@ -96,10 +94,8 @@ export default function AIAgentPage() {
       // Determine current stage
       if (!data.onboardingComplete) {
         setStage('onboarding')
-        setMessages([{
-          role: 'assistant',
-          content: '👋 Welcome back! Let\'s continue setting up your store.'
-        }])
+        // Don't add AI message - the SimpleOnboarding form shows the first question
+        setMessages([])
       } else if (!data.researchComplete) {
         setStage('research')
         setMessages([{
@@ -284,15 +280,41 @@ ${productList}
               </div>
             ))}
 
-            {/* Onboarding Form */}
-            {stage === 'onboarding' && storeId && (
+            {/* Debug Info */}
+            {stage === 'onboarding' && (
               <div className="flex gap-3">
                 <div className="w-8" />
-                <div className="flex-1 max-w-[90%]">
-                  <SimpleOnboarding 
-                    storeId={storeId}
-                    onComplete={handleOnboardingComplete}
-                  />
+                <div className="flex-1 max-w-[90%] p-2 bg-yellow-500/20 border border-yellow-500/30 rounded text-xs text-yellow-300">
+                  Debug: stage={stage}, storeId={storeId || 'null'}
+                </div>
+              </div>
+            )}
+
+            {/* Onboarding Form */}
+            {stage === 'onboarding' && storeId && (
+              <div className="flex gap-3 my-4">
+                <div className="w-8" />
+                <div className="flex-1 max-w-[95%]">
+                  <ErrorBoundary fallback={
+                    <div className="p-4 bg-red-500/20 border border-red-500/30 rounded-xl">
+                      <p className="text-red-400">Onboarding form failed to load. Please refresh.</p>
+                    </div>
+                  }>
+                    <SimpleOnboarding 
+                      storeId={storeId}
+                      onComplete={handleOnboardingComplete}
+                    />
+                  </ErrorBoundary>
+                </div>
+              </div>
+            )}
+
+            {/* No Store Warning */}
+            {stage === 'onboarding' && !storeId && (
+              <div className="flex gap-3">
+                <div className="w-8" />
+                <div className="flex-1 max-w-[90%] p-4 bg-red-500/20 border border-red-500/30 rounded-xl">
+                  <p className="text-red-400">Error: No store found. Please refresh the page.</p>
                 </div>
               </div>
             )}
