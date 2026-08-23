@@ -20,7 +20,7 @@ import { NumberForm } from '@/components/agent/NumberForm'
 import { ConnectAPIForm } from '@/components/agent/ConnectAPIForm'
 import { TextForm } from '@/components/agent/TextForm'
 import { APISplashScreen } from '@/components/agent/APISplashScreen'
-import { ONBOARDING_QUESTIONS, getQuestionById, getSectionName, TOTAL_ONBOARDING_QUESTIONS } from '@/lib/onboarding-questions'
+import { ONBOARDING_QUESTIONS, getQuestionById, TOTAL_ONBOARDING_QUESTIONS } from '@/lib/onboarding-questions'
 
 interface Message {
   role: 'user' | 'assistant' | 'system'
