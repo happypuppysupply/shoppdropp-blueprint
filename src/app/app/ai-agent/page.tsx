@@ -499,12 +499,11 @@ export default function AIAgentPage() {
     }
   }, [messages, context?.stores, getStorageKey])
 
-  // Show onboarding if workflow not ready and has active store
+  // Show inline onboarding if onboarding is not complete
   useEffect(() => {
-    if (!loadingWorkflow && workflowStatus && !workflowStatus.canStartWorkflow && context?.stores?.[0] && !showOnboarding && !showInlineOnboarding && aiConfig) {
-      const shouldShow = !workflowStatus.onboardingComplete || workflowStatus.missingRequirements.length > 0
-      if (shouldShow) {
-        // Show inline onboarding in chat instead of modal
+    if (!loadingWorkflow && workflowStatus && context?.stores?.[0] && !showInlineOnboarding && aiConfig) {
+      // Show inline onboarding if onboarding is NOT complete
+      if (!workflowStatus.onboardingComplete) {
         setShowInlineOnboarding(true)
         // Add a message prompting to complete onboarding
         setMessages(prev => {
@@ -518,16 +517,16 @@ export default function AIAgentPage() {
         })
       }
     }
-  }, [loadingWorkflow, workflowStatus, context, showOnboarding, showInlineOnboarding, aiConfig])
+  }, [loadingWorkflow, workflowStatus, context, showInlineOnboarding, aiConfig])
 
-  // Show greeting when onboarding completes
-  useEffect(() => {
-    if (workflowStatus?.onboardingComplete && !hasGreeted && !loadingWorkflow && aiConfig) {
-      setHasGreeted(true)
-      const greeting = generateOnboardingGreeting(workflowStatus.storeConfig)
-      setMessages(prev => [...prev, { role: 'assistant', content: greeting }])
-    }
-  }, [workflowStatus, hasGreeted, loadingWorkflow, aiConfig])
+  // Show greeting when onboarding completes - DISABLED in favor of inline onboarding
+  // useEffect(() => {
+  //   if (workflowStatus?.onboardingComplete && !hasGreeted && !loadingWorkflow && aiConfig) {
+  //     setHasGreeted(true)
+  //     const greeting = generateOnboardingGreeting(workflowStatus.storeConfig)
+  //     setMessages(prev => [...prev, { role: 'assistant', content: greeting }])
+  //   }
+  // }, [workflowStatus, hasGreeted, loadingWorkflow, aiConfig])
 
   // Connect WebSocket when AI is configured
   useEffect(() => {
@@ -2576,20 +2575,7 @@ Next, I need to learn about your store to provide personalized assistance. Let's
         )}
       </div>
 
-      {/* Onboarding Modal */}
-      {showOnboarding && activeStore && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <InlineOnboarding 
-              storeId={activeStore.id}
-              onComplete={handleOnboardingComplete}
-              onRestart={() => {
-                // Reset will be handled by the component
-              }}
-            />
-          </div>
-        </div>
-      )}
+
     </div>
   )
 }
