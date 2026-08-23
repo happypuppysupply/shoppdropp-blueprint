@@ -73,6 +73,7 @@ const sectionIcons: Record<string, any> = {
 }
 
 // Integration API key steps - now AFTER all 27 questions
+// OpenWeb Ninja has 3 APIs: Amazon, Walmart, eBay
 const INTEGRATION_STEPS: OnboardingStep[] = [
   {
     stepNumber: 1,
@@ -103,15 +104,33 @@ const INTEGRATION_STEPS: OnboardingStep[] = [
   },
   {
     stepNumber: 4,
-    stepName: 'openweb_ninja',
-    prompt: 'Connect OpenWeb Ninja for Amazon product research and competitor analysis. This helps the AI find trending products, analyze pricing, and identify market opportunities.',
+    stepName: 'openweb_ninja_amazon',
+    prompt: 'Connect OpenWeb Ninja Amazon API for real-time Amazon product data, pricing analysis, and competitor research. This helps the AI find profitable products and analyze market demand on Amazon.',
     inputType: 'api_key',
-    serviceType: 'openweb_ninja',
-    docsUrl: 'https://openwebninja.io/docs',
+    serviceType: 'openweb_ninja_amazon',
+    docsUrl: 'https://openwebninja.io/docs/amazon',
     validation: { required: false }
   },
   {
     stepNumber: 5,
+    stepName: 'openweb_ninja_walmart',
+    prompt: 'Connect OpenWeb Ninja Walmart API for Walmart marketplace product research and pricing intelligence. This helps the AI identify products with good margins on Walmart.',
+    inputType: 'api_key',
+    serviceType: 'openweb_ninja_walmart',
+    docsUrl: 'https://openwebninja.io/docs/walmart',
+    validation: { required: false }
+  },
+  {
+    stepNumber: 6,
+    stepName: 'openweb_ninja_ebay',
+    prompt: 'Connect OpenWeb Ninja eBay API for eBay marketplace analysis and trending product discovery. This helps the AI understand what products are selling well on eBay.',
+    inputType: 'api_key',
+    serviceType: 'openweb_ninja_ebay',
+    docsUrl: 'https://openwebninja.io/docs/ebay',
+    validation: { required: false }
+  },
+  {
+    stepNumber: 7,
     stepName: 'google_trends',
     prompt: 'Connect Google Trends API to analyze search trends and seasonality. This helps the AI identify rising products and optimal timing for launches.',
     inputType: 'api_key',
@@ -319,7 +338,9 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
         case 'meta_ads': return Megaphone
         case 'cj_dropshipping': return Truck
         case 'shopify': return ShoppingBag
-        case 'openweb_ninja': return Search
+        case 'openweb_ninja_amazon': return Search
+        case 'openweb_ninja_walmart': return Search
+        case 'openweb_ninja_ebay': return Search
         case 'google_trends': return BarChart3
         default: return Key
       }
