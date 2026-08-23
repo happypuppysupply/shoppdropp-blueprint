@@ -38,6 +38,7 @@ export default function AIAgentPage() {
   const [stage, setStage] = useState<WorkflowStage>('onboarding')
   const [storeId, setStoreId] = useState<string | null>(null)
   const [worker, setWorker] = useState<any>(null)
+  const [initError, setInitError] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   // Initialize
@@ -47,35 +48,51 @@ export default function AIAgentPage() {
     }
   }, [isAuthenticated])
 
+  const [initError, setInitError] = useState<string | null>(null)
+
   const initialize = async () => {
     try {
-      // Get or create store
+      setInitError(null)
+      
+      // Get existing stores
       const response = await fetch(`${API_URL}/api/stores`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch stores: ${response.status}`)
+      }
+      
       const data = await response.json()
       
       if (data.stores?.length > 0) {
-        setStoreId(data.stores[0].id)
-        checkWorkflowStatus(data.stores[0].id)
+        // Use first existing store
+        const store = data.stores[0]
+        setStoreId(store.id)
+        await checkWorkflowStatus(store.id)
       } else {
-        // Create default store
+        // Create new store
         const createRes = await fetch(`${API_URL}/api/stores`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ name: 'My Store' })
+          body: JSON.stringify({ name: 'My Store', url: 'https://mystore.myshopify.com' })
         })
+        
+        if (!createRes.ok) {
+          const errData = await createRes.json().catch(() => ({}))
+          throw new Error(errData.error || `Failed to create store: ${createRes.status}`)
+        }
+        
         const newStore = await createRes.json()
         setStoreId(newStore.id)
-        
-        // Check workflow status for new store (will be at onboarding stage)
-        checkWorkflowStatus(newStore.id)
+        await checkWorkflowStatus(newStore.id)
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to initialize:', error)
+      setInitError(error.message || 'Failed to initialize store')
     }
   }
 
@@ -279,6 +296,19 @@ ${productList}
                 </div>
               </div>
             ))}
+
+            {/* Init Error */}
+            {initError && (
+              <div className="flex gap-3 my-4">
+                <div className="w-8" />
+                <div className="flex-1 max-w-[90%] p-4 bg-red-500/20 border border-red-500/30 rounded-xl">
+                  <p className="text-red-400 mb-3">{initError}</p>
+                  <Button onClick={initialize} variant="outline" size="sm">
+                    Retry
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Debug Info */}
             {stage === 'onboarding' && (
