@@ -9,22 +9,19 @@ import {
   Check, 
   Store, 
   Target, 
-  Palette, 
   Package, 
   Megaphone,
   TrendingUp,
   Loader2,
   Key,
-  Globe,
   Truck,
   Search,
   ShoppingBag,
-  Flag,
   Users,
-  DollarSign,
   BarChart3,
   Settings,
-  Rocket
+  X,
+  SkipForward
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { api } from '@/lib/api'
@@ -33,7 +30,7 @@ interface OnboardingStep {
   stepNumber: number
   stepName: string
   prompt: string
-  inputType: 'single_select' | 'multi_select' | 'text' | 'textarea' | 'api_key' | 'number' | 'slider'
+  inputType: 'single_select' | 'multi_select' | 'text' | 'textarea' | 'api_key' | 'number' | 'slider' | 'research_apis'
   options?: Array<{
     id: string
     name: string
@@ -72,8 +69,7 @@ const sectionIcons: Record<string, any> = {
   'Operations': Settings,
 }
 
-// Integration API key steps - now AFTER all 27 questions
-// OpenWeb Ninja has 5 APIs: Amazon, Walmart, eBay, Product Search, E-commerce Data
+// Simplified integration steps - OpenWeb Ninja APIs grouped into one step
 const INTEGRATION_STEPS: OnboardingStep[] = [
   {
     stepNumber: 1,
@@ -104,62 +100,14 @@ const INTEGRATION_STEPS: OnboardingStep[] = [
   },
   {
     stepNumber: 4,
-    stepName: 'research_api_choice',
-    prompt: 'How would you like to handle product research? Choose to use ShoppDropp\'s research APIs (powered by OpenWeb Ninja) or connect your own.',
-    inputType: 'single_select',
-    options: [
-      { id: 'use_shoppdropp', name: 'Use ShoppDropp Research APIs', description: 'Use our platform\'s OpenWeb Ninja integration - no setup needed' },
-      { id: 'use_own', name: 'Connect My Own APIs', description: 'Enter your own OpenWeb Ninja API keys for full control' },
-    ],
-    validation: { required: true }
+    stepName: 'research_apis',
+    prompt: 'Connect Research APIs for product research. You can use ShoppDropp\'s built-in research (powered by OpenWeb Ninja) or add your own API keys for Amazon, Walmart, eBay, Product Search, and E-commerce Data.',
+    inputType: 'research_apis',
+    serviceType: 'research_apis',
+    validation: { required: false }
   },
   {
     stepNumber: 5,
-    stepName: 'openwebninja_amazon',
-    prompt: 'Connect OpenWeb Ninja Amazon API for real-time Amazon product data, pricing analysis, and competitor research. This helps the AI find profitable products and analyze market demand on Amazon.',
-    inputType: 'api_key',
-    serviceType: 'openwebninja_amazon',
-    docsUrl: 'https://app.openwebninja.com/api/realtime-amazon-data/overview',
-    validation: { required: false }
-  },
-  {
-    stepNumber: 6,
-    stepName: 'openwebninja_walmart',
-    prompt: 'Connect OpenWeb Ninja Walmart API for Walmart marketplace product research and pricing intelligence. This helps the AI identify products with good margins on Walmart.',
-    inputType: 'api_key',
-    serviceType: 'openwebninja_walmart',
-    docsUrl: 'https://app.openwebninja.com/api/realtime-walmart-data/overview',
-    validation: { required: false }
-  },
-  {
-    stepNumber: 7,
-    stepName: 'openwebninja_ebay',
-    prompt: 'Connect OpenWeb Ninja eBay API for eBay marketplace analysis and trending product discovery. This helps the AI understand what products are selling well on eBay.',
-    inputType: 'api_key',
-    serviceType: 'openwebninja_ebay',
-    docsUrl: 'https://app.openwebninja.com/api/realtime-ebay-data/overview',
-    validation: { required: false }
-  },
-  {
-    stepNumber: 8,
-    stepName: 'openwebninja_product_search',
-    prompt: 'Connect OpenWeb Ninja Real-Time Product Search API for lightweight, fast product lookups across multiple marketplaces. Great for quick price comparisons and availability checks.',
-    inputType: 'api_key',
-    serviceType: 'openwebninja_product_search',
-    docsUrl: 'https://app.openwebninja.com/api/realtime-product-search/overview',
-    validation: { required: false }
-  },
-  {
-    stepNumber: 9,
-    stepName: 'openwebninja_ecommerce',
-    prompt: 'Connect OpenWeb Ninja Real-Time E-commerce Data API for unified product data across multiple platforms. Provides comprehensive product information, reviews, and pricing history.',
-    inputType: 'api_key',
-    serviceType: 'openwebninja_ecommerce',
-    docsUrl: 'https://app.openwebninja.com/api/realtime-ecommerce-data/overview',
-    validation: { required: false }
-  },
-  {
-    stepNumber: 10,
     stepName: 'google_trends',
     prompt: 'Connect Google Trends API to analyze search trends and seasonality. This helps the AI identify rising products and optimal timing for launches.',
     inputType: 'api_key',
@@ -186,6 +134,16 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
   const [totalSteps, setTotalSteps] = useState(27)
   const [currentSection, setCurrentSection] = useState('')
   const [allSections, setAllSections] = useState<string[]>([])
+
+  // Research API form state
+  const [researchChoice, setResearchChoice] = useState<'shoppdropp' | 'own' | null>(null)
+  const [researchAPIs, setResearchAPIs] = useState({
+    amazon: '',
+    walmart: '',
+    ebay: '',
+    product_search: '',
+    ecommerce: ''
+  })
 
   // Fetch current step data
   useEffect(() => {
@@ -251,43 +209,22 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
     }
   }
 
-  const [useOwnResearchAPIs, setUseOwnResearchAPIs] = useState<boolean | null>(null)
+  const handleSkipAll = async () => {
+    // Skip all remaining integration steps
+    setIsComplete(true)
+    setTimeout(() => {
+      onComplete()
+    }, 1500)
+  }
 
   const handleContinue = async () => {
-    // Validate
-    if (stepData?.validation?.required) {
-      if (stepData.inputType === 'text' || stepData.inputType === 'textarea') {
-        if (!textValue.trim()) {
-          setError('This field is required')
-          return
-        }
-      } else if (stepData.inputType === 'number') {
-        if (!numberValue.trim()) {
-          setError('This field is required')
-          return
-        }
-      } else if (stepData.inputType === 'api_key') {
-        // API keys are optional - can skip
-      } else {
-        if (selectedValues.length === 0) {
-          setError('Please select at least one option')
-          return
-        }
-      }
-    }
-
-    if (stepData?.validation?.min && selectedValues.length < stepData.validation.min) {
-      setError(`Please select at least ${stepData.validation.min} options`)
-      return
-    }
-
     setSaving(true)
     setError('')
 
     try {
       // Handle integration API key steps
       if (isIntegrationPhase && stepData?.inputType === 'api_key') {
-        // Save API credentials if provided
+        // Save API credentials if provided (optional)
         if (apiKeyValue.trim()) {
           await api.request(`/stores/${storeId}/credentials`, {
             method: 'POST',
@@ -310,42 +247,47 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
             onComplete()
           }, 2000)
         } else {
-          // Check if we should skip OpenWeb Ninja steps
-          const nextStep = INTEGRATION_STEPS[integrationIndex + 1]
-          if (useOwnResearchAPIs === false && 
-              nextStep?.serviceType?.startsWith('openwebninja')) {
-            // Skip to Google Trends (last step)
-            setCurrentStep(totalSteps + INTEGRATION_STEPS.length)
-          } else {
-            setCurrentStep(currentStep + 1)
-          }
-        }
-      } else if (isIntegrationPhase && stepData?.stepName === 'research_api_choice') {
-        // Handle research API choice
-        const choice = selectedValues[0]
-        const useOwn = choice === 'use_own'
-        setUseOwnResearchAPIs(useOwn)
-        
-        // Save the choice
-        await api.request(`/stores/${storeId}/credentials`, {
-          method: 'POST',
-          body: JSON.stringify({
-            type: 'research_api_choice',
-            credentials: {
-              choice: choice,
-              use_shoppdropp: !useOwn,
-            },
-          }),
-        })
-        
-        setCompletedSteps(prev => [...prev, currentStep])
-        
-        if (!useOwn) {
-          // Skip to Google Trends (last step)
-          setCurrentStep(totalSteps + INTEGRATION_STEPS.length)
-        } else {
           setCurrentStep(currentStep + 1)
         }
+      } else if (isIntegrationPhase && stepData?.inputType === 'research_apis') {
+        // Handle research APIs form
+        if (researchChoice === 'own') {
+          // Save any provided research API keys
+          const apisToSave = [
+            { key: 'openwebninja_amazon', value: researchAPIs.amazon },
+            { key: 'openwebninja_walmart', value: researchAPIs.walmart },
+            { key: 'openwebninja_ebay', value: researchAPIs.ebay },
+            { key: 'openwebninja_product_search', value: researchAPIs.product_search },
+            { key: 'openwebninja_ecommerce', value: researchAPIs.ecommerce },
+          ]
+
+          for (const api of apisToSave) {
+            if (api.value.trim()) {
+              await api.request(`/stores/${storeId}/credentials`, {
+                method: 'POST',
+                body: JSON.stringify({
+                  type: api.key,
+                  credentials: { api_key: api.value },
+                }),
+              })
+            }
+          }
+        } else {
+          // Save choice to use ShoppDropp APIs
+          await api.request(`/stores/${storeId}/credentials`, {
+            method: 'POST',
+            body: JSON.stringify({
+              type: 'research_api_choice',
+              credentials: {
+                choice: 'use_shoppdropp',
+                use_shoppdropp: true,
+              },
+            }),
+          })
+        }
+        
+        setCompletedSteps(prev => [...prev, currentStep])
+        setCurrentStep(currentStep + 1)
       } else {
         // Regular onboarding steps
         let dataToSend: any
@@ -386,10 +328,6 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
   }
 
   const handleBack = () => {
-    if (isIntegrationPhase && currentStep === totalSteps + 1) {
-      // Can't go back from first integration step
-      return
-    }
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1)
     }
@@ -401,7 +339,7 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
       const step = INTEGRATION_STEPS[integrationIndex]
       const serviceType = step?.serviceType
       
-      if (step?.stepName === 'research_api_choice') {
+      if (serviceType === 'research_apis') {
         return Search
       }
       
@@ -409,11 +347,6 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
         case 'meta_ads': return Megaphone
         case 'cj_dropshipping': return Truck
         case 'shopify': return ShoppingBag
-        case 'openwebninja_amazon': return Search
-        case 'openwebninja_walmart': return Search
-        case 'openwebninja_ebay': return Search
-        case 'openwebninja_product_search': return Search
-        case 'openwebninja_ecommerce': return Search
         case 'google_trends': return BarChart3
         default: return Key
       }
@@ -464,16 +397,6 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
           <p className="text-slate-300 text-lg mb-6">
             Your store and integrations are configured! The AI now has everything it needs.
           </p>
-          <div className="space-y-2 mb-6">
-            <p className="text-sm text-slate-400">Connected Services:</p>
-            <div className="flex flex-wrap justify-center gap-2">
-              <span className="px-3 py-1 bg-violet-500/20 text-violet-300 rounded-full text-sm">✓ Store Config</span>
-              <span className="px-3 py-1 bg-violet-500/20 text-violet-300 rounded-full text-sm">✓ Meta Ads</span>
-              <span className="px-3 py-1 bg-violet-500/20 text-violet-300 rounded-full text-sm">✓ CJ Dropshipping</span>
-              <span className="px-3 py-1 bg-violet-500/20 text-violet-300 rounded-full text-sm">✓ Shopify</span>
-              <span className="px-3 py-1 bg-violet-500/20 text-violet-300 rounded-full text-sm">✓ Research APIs</span>
-            </div>
-          </div>
           <div className="flex items-center justify-center gap-2 text-violet-400">
             <Loader2 className="w-5 h-5 animate-spin" />
             <span>Starting your AI agent...</span>
@@ -506,14 +429,25 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
                   <h2 className="text-xl font-semibold text-white">{getStepTitle()}</h2>
                 </div>
               </div>
-              {onSkip && !isIntegrationPhase && (
-                <button
-                  onClick={onSkip}
-                  className="text-sm text-slate-500 hover:text-slate-300 transition-colors"
-                >
-                  Skip for now
-                </button>
-              )}
+              <div className="flex items-center gap-2">
+                {isIntegrationPhase && (
+                  <button
+                    onClick={handleSkipAll}
+                    className="text-sm text-slate-500 hover:text-slate-300 transition-colors flex items-center gap-1"
+                  >
+                    <SkipForward className="w-4 h-4" />
+                    Skip All
+                  </button>
+                )}
+                {onSkip && !isIntegrationPhase && (
+                  <button
+                    onClick={onSkip}
+                    className="text-sm text-slate-500 hover:text-slate-300 transition-colors"
+                  >
+                    Skip for now
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Progress Bar */}
@@ -569,13 +503,77 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
                     </div>
                   </div>
 
-                  {/* Input Area */}
-                  {stepData.inputType === 'api_key' ? (
+                  {/* Research APIs Form */}
+                  {stepData.inputType === 'research_apis' && (
+                    <div className="space-y-6">
+                      {/* Choice */}
+                      <div className="space-y-3">
+                        <label className="block text-sm font-medium text-slate-300">
+                          Choose how to handle research:
+                        </label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <button
+                            onClick={() => setResearchChoice('shoppdropp')}
+                            className={`p-4 rounded-xl border-2 text-left transition-all ${
+                              researchChoice === 'shoppdropp'
+                                ? 'bg-violet-500/20 border-violet-500'
+                                : 'bg-white/5 border-white/10 hover:border-white/30'
+                            }`}
+                          >
+                            <div className="font-medium text-white">Use ShoppDropp APIs</div>
+                            <div className="text-sm text-slate-400 mt-1">Powered by OpenWeb Ninja - no setup needed</div>
+                          </button>
+                          <button
+                            onClick={() => setResearchChoice('own')}
+                            className={`p-4 rounded-xl border-2 text-left transition-all ${
+                              researchChoice === 'own'
+                                ? 'bg-violet-500/20 border-violet-500'
+                                : 'bg-white/5 border-white/10 hover:border-white/30'
+                            }`}
+                          >
+                            <div className="font-medium text-white">Use My Own APIs</div>
+                            <div className="text-sm text-slate-400 mt-1">Enter your OpenWeb Ninja API keys</div>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* API Key Inputs (only if choosing own) */}
+                      {researchChoice === 'own' && (
+                        <div className="space-y-4 p-4 bg-white/5 rounded-xl">
+                          <p className="text-sm text-slate-400 mb-4">Enter your OpenWeb Ninja API keys (all optional):</p>
+                          
+                          {[
+                            { key: 'amazon', label: 'Amazon API', placeholder: 'Amazon API key' },
+                            { key: 'walmart', label: 'Walmart API', placeholder: 'Walmart API key' },
+                            { key: 'ebay', label: 'eBay API', placeholder: 'eBay API key' },
+                            { key: 'product_search', label: 'Product Search API', placeholder: 'Product Search API key' },
+                            { key: 'ecommerce', label: 'E-commerce Data API', placeholder: 'E-commerce API key' },
+                          ].map((api) => (
+                            <div key={api.key}>
+                              <label className="block text-sm font-medium text-slate-300 mb-2">
+                                {api.label}
+                              </label>
+                              <input
+                                type="password"
+                                value={researchAPIs[api.key as keyof typeof researchAPIs]}
+                                onChange={(e) => setResearchAPIs(prev => ({ ...prev, [api.key]: e.target.value }))}
+                                placeholder={`${api.placeholder} (optional)`}
+                                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono text-sm"
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* API Key Input */}
+                  {stepData.inputType === 'api_key' && (
                     <div className="space-y-4">
                       <div className="p-4 bg-violet-500/10 border border-violet-500/20 rounded-xl">
                         <h4 className="font-medium text-white mb-2">{stepData.stepName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} Configuration</h4>
                         <p className="text-sm text-slate-400 mb-4">
-                          This is optional but recommended. You can always add these later in Settings.
+                          This is optional. You can skip this and add it later in Settings.
                         </p>
                         <a 
                           href={stepData.docsUrl}
@@ -595,11 +593,6 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
                           type="password"
                           value={apiKeyValue}
                           onChange={(e) => setApiKeyValue(e.target.value)}
-                          onPaste={(e) => {
-                            e.preventDefault()
-                            const pasted = e.clipboardData.getData('text')
-                            setApiKeyValue(pasted.trim())
-                          }}
                           placeholder="Enter API key (optional)"
                           className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono text-sm"
                         />
@@ -614,60 +607,55 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
                             type="password"
                             value={apiKeySecret}
                             onChange={(e) => setApiKeySecret(e.target.value)}
-                            onPaste={(e) => {
-                              e.preventDefault()
-                              const pasted = e.clipboardData.getData('text')
-                              setApiKeySecret(pasted.trim())
-                            }}
                             placeholder="Enter secret (optional)"
                             className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono text-sm"
                           />
                         </div>
                       )}
-                      
-                      <p className="text-xs text-slate-500">
-                        Your API keys are encrypted and stored securely. We never share or log your credentials.
-                      </p>
                     </div>
-                  ) : stepData.inputType === 'text' || stepData.inputType === 'textarea' ? (
-                    <div className="space-y-3">
-                      {stepData.inputType === 'textarea' ? (
-                        <textarea
-                          value={textValue}
-                          onChange={(e) => setTextValue(e.target.value)}
-                          placeholder={stepData.placeholder || "Describe your niche..."}
-                          className="w-full h-32 px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none"
-                        />
-                      ) : (
-                        <input
-                          type="text"
-                          value={textValue}
-                          onChange={(e) => setTextValue(e.target.value)}
-                          placeholder={stepData.placeholder || "Enter your answer..."}
-                          className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                        />
+                  )}
+
+                  {/* Text/Number Inputs */}
+                  {stepData.inputType === 'text' && (
+                    <input
+                      type="text"
+                      value={textValue}
+                      onChange={(e) => setTextValue(e.target.value)}
+                      placeholder={stepData.placeholder || "Enter your answer..."}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    />
+                  )}
+
+                  {stepData.inputType === 'textarea' && (
+                    <textarea
+                      value={textValue}
+                      onChange={(e) => setTextValue(e.target.value)}
+                      placeholder={stepData.placeholder || "Describe your niche..."}
+                      className="w-full h-32 px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none"
+                    />
+                  )}
+
+                  {stepData.inputType === 'number' && (
+                    <div className="relative">
+                      {stepData.prefix && (
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                          {stepData.prefix}
+                        </span>
                       )}
+                      <input
+                        type="number"
+                        value={numberValue}
+                        onChange={(e) => setNumberValue(e.target.value)}
+                        placeholder={stepData.placeholder || "Enter amount..."}
+                        min={stepData.min}
+                        max={stepData.max}
+                        className={`w-full ${stepData.prefix ? 'pl-8' : 'px-4'} py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500`}
+                      />
                     </div>
-                  ) : stepData.inputType === 'number' ? (
-                    <div className="space-y-3">
-                      <div className="relative">
-                        {stepData.prefix && (
-                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                            {stepData.prefix}
-                          </span>
-                        )}
-                        <input
-                          type="number"
-                          value={numberValue}
-                          onChange={(e) => setNumberValue(e.target.value)}
-                          placeholder={stepData.placeholder || "Enter amount..."}
-                          min={stepData.min}
-                          max={stepData.max}
-                          className={`w-full ${stepData.prefix ? 'pl-8' : 'px-4'} py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500`}
-                        />
-                      </div>
-                    </div>
-                  ) : (
+                  )}
+
+                  {/* Select Options */}
+                  {(stepData.inputType === 'single_select' || stepData.inputType === 'multi_select') && stepData.options && (
                     <div className="space-y-3">
                       {stepData.options?.map((option) => {
                         const isSelected = selectedValues.includes(option.id)
@@ -705,11 +693,6 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
                                     {option.description}
                                   </p>
                                 )}
-                                {option.example && (
-                                  <p className="text-sm text-violet-400/70 mt-1 italic">
-                                    "{option.example}"
-                                  </p>
-                                )}
                               </div>
                             </div>
                           </button>
@@ -738,7 +721,7 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
               <Button
                 variant="outline"
                 onClick={handleBack}
-                disabled={currentStep === 1 || saving || (isIntegrationPhase && currentStep === totalSteps + 1)}
+                disabled={currentStep === 1 || saving}
                 className="gap-2"
               >
                 <ChevronLeft className="w-4 h-4" />
@@ -769,17 +752,12 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
                       Finish Setup
                       <Check className="w-4 h-4" />
                     </>
-                  ) : !isIntegrationPhase && currentStep === totalSteps ? (
-                    <>
-                      Continue to Integrations
-                      <ChevronRight className="w-4 h-4" />
-                    </>
                   ) : (
                     <>
                       Continue
                       <ChevronRight className="w-4 h-4" />
                     </>
-                  )}
+                  )
                 </Button>
               </div>
             </div>
