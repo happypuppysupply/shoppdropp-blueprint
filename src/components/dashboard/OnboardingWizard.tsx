@@ -757,7 +757,7 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
                       Continue
                       <ChevronRight className="w-4 h-4" />
                     </>
-                  )
+                  )}
                 </Button>
               </div>
             </div>
