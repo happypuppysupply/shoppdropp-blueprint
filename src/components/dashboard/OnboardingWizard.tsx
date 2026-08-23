@@ -14,7 +14,17 @@ import {
   Megaphone,
   TrendingUp,
   Loader2,
-  Key
+  Key,
+  Globe,
+  Truck,
+  Search,
+  ShoppingBag,
+  Flag,
+  Users,
+  DollarSign,
+  BarChart3,
+  Settings,
+  Rocket
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { api } from '@/lib/api'
@@ -23,7 +33,7 @@ interface OnboardingStep {
   stepNumber: number
   stepName: string
   prompt: string
-  inputType: 'single_select' | 'multi_select' | 'text' | 'textarea' | 'api_key'
+  inputType: 'single_select' | 'multi_select' | 'text' | 'textarea' | 'api_key' | 'number' | 'slider'
   options?: Array<{
     id: string
     name: string
@@ -38,6 +48,11 @@ interface OnboardingStep {
   }
   serviceType?: string
   docsUrl?: string
+  section?: string
+  placeholder?: string
+  prefix?: string
+  min?: number
+  max?: number
 }
 
 interface OnboardingWizardProps {
@@ -46,81 +61,65 @@ interface OnboardingWizardProps {
   onSkip?: () => void
 }
 
-const stepIcons: Record<number, any> = {
-  1: Store,
-  2: Store,
-  3: Target,
-  4: Target,
-  5: Target,
-  6: Target,
-  7: Palette,
-  8: Palette,
-  9: Package,
-  10: Megaphone,
-  11: TrendingUp,
-  12: Megaphone,      // Meta Ads
-  13: Package,        // CJ Dropshipping
-  14: Target,         // Research APIs
-  15: Store,          // Shopify
+// Section icons mapping
+const sectionIcons: Record<string, any> = {
+  'Business Goals': Target,
+  'Store Identity': Store,
+  'Product Strategy': Package,
+  'Target Audience': Users,
+  'Brand & Marketing': Megaphone,
+  'Marketing Strategy': TrendingUp,
+  'Operations': Settings,
 }
 
-const stepTitles: Record<number, string> = {
-  1: 'Market Category',
-  2: 'Subcategory',
-  3: 'Your Niche',
-  4: 'Target Audience',
-  5: 'Psychographics',
-  6: 'Pain Points',
-  7: 'Brand Voice',
-  8: 'Site Style',
-  9: 'Product Strategy',
-  10: 'Marketing',
-  11: 'Business Goals',
-  12: 'Meta Ads API',
-  13: 'CJ Dropshipping',
-  14: 'Research APIs',
-  15: 'Shopify API',
-}
-
-// Integration API key steps
-const INTEGRATION_STEPS: Record<number, OnboardingStep> = {
-  12: {
-    stepNumber: 12,
-    stepName: 'Meta Ads API',
+// Integration API key steps - now AFTER all 27 questions
+const INTEGRATION_STEPS: OnboardingStep[] = [
+  {
+    stepNumber: 1,
+    stepName: 'meta_ads',
     prompt: 'Connect your Meta (Facebook) Ads API to enable automated ad campaign creation and management. This allows the AI to create, optimize, and manage your Facebook and Instagram ads.',
     inputType: 'api_key',
     serviceType: 'meta_ads',
     docsUrl: 'https://developers.facebook.com/docs/marketing-api/overview',
     validation: { required: false }
   },
-  13: {
-    stepNumber: 13,
-    stepName: 'CJ Dropshipping',
+  {
+    stepNumber: 2,
+    stepName: 'cj_dropshipping',
     prompt: 'Connect CJ Dropshipping for automated product sourcing and fulfillment. This enables the AI to import products, sync inventory, and handle order fulfillment.',
     inputType: 'api_key',
     serviceType: 'cj_dropshipping',
     docsUrl: 'https://cjdropshipping.com/api',
     validation: { required: false }
   },
-  14: {
-    stepNumber: 14,
-    stepName: 'Research APIs',
-    prompt: 'Add product research API keys (OpenWeb Ninja, Google Trends, etc.) to enable AI-powered product research and trend analysis. These help find winning products in your niche.',
-    inputType: 'api_key',
-    serviceType: 'research',
-    docsUrl: 'https://openwebninja.io/docs',
-    validation: { required: false }
-  },
-  15: {
-    stepNumber: 15,
-    stepName: 'Shopify API',
+  {
+    stepNumber: 3,
+    stepName: 'shopify',
     prompt: 'Connect your Shopify store API to enable automated store building, product listing creation, and inventory management. The AI can create products, collections, and themes.',
     inputType: 'api_key',
     serviceType: 'shopify',
     docsUrl: 'https://shopify.dev/docs/api/admin',
     validation: { required: false }
   },
-}
+  {
+    stepNumber: 4,
+    stepName: 'openweb_ninja',
+    prompt: 'Connect OpenWeb Ninja for Amazon product research and competitor analysis. This helps the AI find trending products, analyze pricing, and identify market opportunities.',
+    inputType: 'api_key',
+    serviceType: 'openweb_ninja',
+    docsUrl: 'https://openwebninja.io/docs',
+    validation: { required: false }
+  },
+  {
+    stepNumber: 5,
+    stepName: 'google_trends',
+    prompt: 'Connect Google Trends API to analyze search trends and seasonality. This helps the AI identify rising products and optimal timing for launches.',
+    inputType: 'api_key',
+    serviceType: 'google_trends',
+    docsUrl: 'https://developers.google.com/trends',
+    validation: { required: false }
+  },
+]
 
 export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWizardProps) {
   const [currentStep, setCurrentStep] = useState(1)
@@ -129,12 +128,16 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
   const [saving, setSaving] = useState(false)
   const [selectedValues, setSelectedValues] = useState<string[]>([])
   const [textValue, setTextValue] = useState('')
+  const [numberValue, setNumberValue] = useState('')
   const [apiKeyValue, setApiKeyValue] = useState('')
   const [apiKeySecret, setApiKeySecret] = useState('')
   const [error, setError] = useState('')
   const [completedSteps, setCompletedSteps] = useState<number[]>([])
   const [isComplete, setIsComplete] = useState(false)
   const [isIntegrationPhase, setIsIntegrationPhase] = useState(false)
+  const [totalSteps, setTotalSteps] = useState(27)
+  const [currentSection, setCurrentSection] = useState('')
+  const [allSections, setAllSections] = useState<string[]>([])
 
   // Fetch current step data
   useEffect(() => {
@@ -145,19 +148,42 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
     setLoading(true)
     setError('')
     try {
-      // If in integration phase (steps 12-15), use local step data
-      if (currentStep >= 12) {
-        setStepData(INTEGRATION_STEPS[currentStep])
-        setIsIntegrationPhase(true)
-        setApiKeyValue('')
-        setApiKeySecret('')
-      } else {
-        const step = await api.request(`/onboarding/step/${storeId}`)
-        setStepData(step)
-        setIsIntegrationPhase(false)
+      // Check if we're in integration phase (after all onboarding questions)
+      if (isIntegrationPhase) {
+        const integrationIndex = currentStep - totalSteps - 1
+        if (integrationIndex >= 0 && integrationIndex < INTEGRATION_STEPS.length) {
+          setStepData(INTEGRATION_STEPS[integrationIndex])
+        } else if (integrationIndex >= INTEGRATION_STEPS.length) {
+          setIsComplete(true)
+        }
+        setLoading(false)
+        return
       }
+
+      // Fetch from backend
+      const step = await api.request(`/onboarding/step/${storeId}`)
+      
+      if (step.isComplete) {
+        // Move to integration phase
+        setIsIntegrationPhase(true)
+        setCurrentStep(totalSteps + 1)
+        setLoading(false)
+        return
+      }
+      
+      setStepData(step)
+      setTotalSteps(step.totalSteps || 27)
+      setCurrentSection(step.section || '')
+      
+      // Build sections list from step data
+      if (step.section && !allSections.includes(step.section)) {
+        setAllSections(prev => [...prev, step.section])
+      }
+      
+      setIsIntegrationPhase(false)
       setSelectedValues([])
       setTextValue('')
+      setNumberValue('')
     } catch (err: any) {
       setError(err.message || 'Failed to load step')
     } finally {
@@ -185,6 +211,11 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
           setError('This field is required')
           return
         }
+      } else if (stepData.inputType === 'number') {
+        if (!numberValue.trim()) {
+          setError('This field is required')
+          return
+        }
       } else if (stepData.inputType === 'api_key') {
         // API keys are optional - can skip
       } else {
@@ -204,7 +235,7 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
     setError('')
 
     try {
-      // Handle integration API key steps (12-15)
+      // Handle integration API key steps
       if (isIntegrationPhase && stepData?.inputType === 'api_key') {
         // Save API credentials if provided
         if (apiKeyValue.trim()) {
@@ -222,7 +253,8 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
         
         setCompletedSteps(prev => [...prev, currentStep])
         
-        if (currentStep >= 15) {
+        const integrationIndex = currentStep - totalSteps - 1
+        if (integrationIndex >= INTEGRATION_STEPS.length - 1) {
           setIsComplete(true)
           setTimeout(() => {
             onComplete()
@@ -232,16 +264,23 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
         }
       } else {
         // Regular onboarding steps
+        let dataToSend: any
+        if (stepData?.inputType === 'text' || stepData?.inputType === 'textarea') {
+          dataToSend = textValue
+        } else if (stepData?.inputType === 'number') {
+          dataToSend = parseFloat(numberValue) || 0
+        } else if (stepData?.inputType === 'single_select') {
+          dataToSend = selectedValues[0]
+        } else {
+          dataToSend = selectedValues
+        }
+
         const response = await api.request(`/onboarding/step/${storeId}`, {
           method: 'POST',
           body: JSON.stringify({
             stepNumber: currentStep,
             stepName: stepData?.stepName,
-            data: stepData?.inputType === 'text' || stepData?.inputType === 'textarea' 
-              ? textValue 
-              : stepData?.inputType === 'single_select' 
-                ? selectedValues[0] 
-                : selectedValues,
+            data: dataToSend,
           }),
         })
 
@@ -249,7 +288,8 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
 
         if (response.isComplete) {
           // Move to integration phase after main onboarding
-          setCurrentStep(12)
+          setIsIntegrationPhase(true)
+          setCurrentStep(totalSteps + 1)
         } else {
           setCurrentStep(response.nextStep)
         }
@@ -262,12 +302,56 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
   }
 
   const handleBack = () => {
+    if (isIntegrationPhase && currentStep === totalSteps + 1) {
+      // Can't go back from first integration step
+      return
+    }
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1)
     }
   }
 
-  const StepIcon = stepIcons[currentStep] || Sparkles
+  const getStepIcon = () => {
+    if (isIntegrationPhase) {
+      const integrationIndex = currentStep - totalSteps - 1
+      const serviceType = INTEGRATION_STEPS[integrationIndex]?.serviceType
+      switch (serviceType) {
+        case 'meta_ads': return Megaphone
+        case 'cj_dropshipping': return Truck
+        case 'shopify': return ShoppingBag
+        case 'openweb_ninja': return Search
+        case 'google_trends': return BarChart3
+        default: return Key
+      }
+    }
+    return sectionIcons[currentSection] || Target
+  }
+
+  const getStepTitle = () => {
+    if (isIntegrationPhase) {
+      const integrationIndex = currentStep - totalSteps - 1
+      const step = INTEGRATION_STEPS[integrationIndex]
+      if (step) {
+        return step.stepName.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+      }
+      return 'Integration'
+    }
+    return stepData?.section || 'Setup'
+  }
+
+  const getProgressText = () => {
+    if (isIntegrationPhase) {
+      const integrationIndex = currentStep - totalSteps
+      return `Integration ${integrationIndex} of ${INTEGRATION_STEPS.length}`
+    }
+    return `Question ${currentStep} of ${totalSteps}`
+  }
+
+  const getTotalProgress = () => {
+    const total = totalSteps + INTEGRATION_STEPS.length
+    const current = isIntegrationPhase ? currentStep : currentStep
+    return Math.round(((current - 1) / total) * 100)
+  }
 
   if (isComplete) {
     return (
@@ -292,8 +376,8 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
               <span className="px-3 py-1 bg-violet-500/20 text-violet-300 rounded-full text-sm">✓ Store Config</span>
               <span className="px-3 py-1 bg-violet-500/20 text-violet-300 rounded-full text-sm">✓ Meta Ads</span>
               <span className="px-3 py-1 bg-violet-500/20 text-violet-300 rounded-full text-sm">✓ CJ Dropshipping</span>
-              <span className="px-3 py-1 bg-violet-500/20 text-violet-300 rounded-full text-sm">✓ Research APIs</span>
               <span className="px-3 py-1 bg-violet-500/20 text-violet-300 rounded-full text-sm">✓ Shopify</span>
+              <span className="px-3 py-1 bg-violet-500/20 text-violet-300 rounded-full text-sm">✓ Research APIs</span>
             </div>
           </div>
           <div className="flex items-center justify-center gap-2 text-violet-400">
@@ -305,283 +389,400 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
     )
   }
 
+  const StepIcon = getStepIcon()
+
   return (
     <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="w-full max-w-2xl bg-[#111118] rounded-3xl border border-white/10 shadow-2xl overflow-hidden"
+        className="w-full max-w-4xl bg-[#111118] rounded-3xl border border-white/10 shadow-2xl overflow-hidden flex"
       >
-        {/* Header */}
-        <div className="bg-gradient-to-r from-violet-900/50 to-purple-900/50 p-6 border-b border-white/10">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-violet-500/20 rounded-xl">
-                <StepIcon className="w-6 h-6 text-violet-400" />
-              </div>
-              <div>
-                <p className="text-sm text-slate-400">
-                  {isIntegrationPhase 
-                    ? `Integration ${currentStep - 11} of 4` 
-                    : `Step ${currentStep} of 11`}
-                </p>
-                <h2 className="text-xl font-semibold text-white">
-                  {isIntegrationPhase ? 'Connect ' + stepTitles[currentStep] : stepTitles[currentStep]}
-                </h2>
-              </div>
-            </div>
-            {onSkip && (
-              <button
-                onClick={onSkip}
-                className="text-sm text-slate-500 hover:text-slate-300 transition-colors"
-              >
-                Skip for now
-              </button>
-            )}
-          </div>
-
-          {/* Progress Bar */}
-          <div className="flex gap-1">
-            {Array.from({ length: isIntegrationPhase ? 4 : 11 }, (_, i) => (
-              <div
-                key={i}
-                className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
-                  i + (isIntegrationPhase ? 12 : 1) < currentStep
-                    ? 'bg-green-500'
-                    : i + (isIntegrationPhase ? 12 : 1) === currentStep
-                    ? 'bg-violet-500'
-                    : 'bg-white/10'
-                }`}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="p-6 max-h-[60vh] overflow-y-auto">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
-            </div>
-          ) : error && !stepData ? (
-            <div className="text-center py-8">
-              <p className="text-red-400 mb-4">{error}</p>
-              <Button onClick={fetchStepData} variant="outline">
-                Try Again
-              </Button>
-            </div>
-          ) : stepData ? (
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={currentStep}
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -20 }}
-                transition={{ duration: 0.2 }}
-              >
-                {/* AI Prompt */}
-                <div className="mb-6 p-4 bg-violet-500/10 border border-violet-500/20 rounded-xl">
-                  <div className="flex items-start gap-3">
-                    <Sparkles className="w-5 h-5 text-violet-400 mt-0.5 flex-shrink-0" />
-                    <p className="text-slate-300 leading-relaxed">
-                      {stepData.prompt}
-                    </p>
-                  </div>
+        {/* LEFT - Main Content */}
+        <div className="flex-1 flex flex-col">
+          {/* Header */}
+          <div className="bg-gradient-to-r from-violet-900/50 to-purple-900/50 p-6 border-b border-white/10">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-violet-500/20 rounded-xl">
+                  <StepIcon className="w-6 h-6 text-violet-400" />
                 </div>
+                <div>
+                  <p className="text-sm text-slate-400">{getProgressText()}</p>
+                  <h2 className="text-xl font-semibold text-white">{getStepTitle()}</h2>
+                </div>
+              </div>
+              {onSkip && !isIntegrationPhase && (
+                <button
+                  onClick={onSkip}
+                  className="text-sm text-slate-500 hover:text-slate-300 transition-colors"
+                >
+                  Skip for now
+                </button>
+              )}
+            </div>
 
-                {/* Input Area */}
-                {stepData.inputType === 'api_key' ? (
-                  <div className="space-y-4">
-                    <div className="p-4 bg-violet-500/10 border border-violet-500/20 rounded-xl">
-                      <h4 className="font-medium text-white mb-2">{stepData.stepName} Configuration</h4>
-                      <p className="text-sm text-slate-400 mb-4">
-                        This is optional but recommended. You can always add these later in Settings.
+            {/* Progress Bar */}
+            <div className="flex gap-1">
+              {Array.from({ length: 20 }, (_, i) => {
+                const total = totalSteps + INTEGRATION_STEPS.length
+                const progress = ((currentStep - 1) / total) * 20
+                return (
+                  <div
+                    key={i}
+                    className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
+                      i < progress
+                        ? 'bg-green-500'
+                        : i < progress + 1
+                        ? 'bg-violet-500'
+                        : 'bg-white/10'
+                    }`}
+                  />
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="p-6 max-h-[60vh] overflow-y-auto flex-1">
+            {loading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
+              </div>
+            ) : error && !stepData ? (
+              <div className="text-center py-8">
+                <p className="text-red-400 mb-4">{error}</p>
+                <Button onClick={fetchStepData} variant="outline">
+                  Try Again
+                </Button>
+              </div>
+            ) : stepData ? (
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={currentStep}
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {/* AI Prompt */}
+                  <div className="mb-6 p-4 bg-violet-500/10 border border-violet-500/20 rounded-xl">
+                    <div className="flex items-start gap-3">
+                      <Sparkles className="w-5 h-5 text-violet-400 mt-0.5 flex-shrink-0" />
+                      <p className="text-slate-300 leading-relaxed">
+                        {stepData.prompt}
                       </p>
-                      <a 
-                        href={stepData.docsUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm text-violet-400 hover:text-violet-300 underline"
-                      >
-                        How to get your API key →
-                      </a>
                     </div>
-                    
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-2">
-                        API Key
-                      </label>
-                      <input
-                        type="password"
-                        value={apiKeyValue}
-                        onChange={(e) => setApiKeyValue(e.target.value)}
-                        onPaste={(e) => {
-                          e.preventDefault()
-                          const pasted = e.clipboardData.getData('text')
-                          setApiKeyValue(pasted.trim())
-                        }}
-                        placeholder="Enter API key (optional)"
-                        className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono text-sm"
-                      />
-                    </div>
-                    
-                    {(stepData.serviceType === 'shopify' || stepData.serviceType === 'meta_ads') && (
+                  </div>
+
+                  {/* Input Area */}
+                  {stepData.inputType === 'api_key' ? (
+                    <div className="space-y-4">
+                      <div className="p-4 bg-violet-500/10 border border-violet-500/20 rounded-xl">
+                        <h4 className="font-medium text-white mb-2">{stepData.stepName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} Configuration</h4>
+                        <p className="text-sm text-slate-400 mb-4">
+                          This is optional but recommended. You can always add these later in Settings.
+                        </p>
+                        <a 
+                          href={stepData.docsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-violet-400 hover:text-violet-300 underline"
+                        >
+                          How to get your API key →
+                        </a>
+                      </div>
+                      
                       <div>
                         <label className="block text-sm font-medium text-slate-300 mb-2">
-                          API Secret / Access Token (if required)
+                          API Key
                         </label>
                         <input
                           type="password"
-                          value={apiKeySecret}
-                          onChange={(e) => setApiKeySecret(e.target.value)}
+                          value={apiKeyValue}
+                          onChange={(e) => setApiKeyValue(e.target.value)}
                           onPaste={(e) => {
                             e.preventDefault()
                             const pasted = e.clipboardData.getData('text')
-                            setApiKeySecret(pasted.trim())
+                            setApiKeyValue(pasted.trim())
                           }}
-                          placeholder="Enter secret (optional)"
+                          placeholder="Enter API key (optional)"
                           className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono text-sm"
                         />
                       </div>
-                    )}
-                    
-                    <p className="text-xs text-slate-500">
-                      Your API keys are encrypted and stored securely. We never share or log your credentials.
-                    </p>
-                  </div>
-                ) : stepData.inputType === 'text' || stepData.inputType === 'textarea' ? (
-                  <div className="space-y-3">
-                    {stepData.inputType === 'textarea' ? (
-                      <textarea
-                        value={textValue}
-                        onChange={(e) => setTextValue(e.target.value)}
-                        placeholder="Describe your niche..."
-                        className="w-full h-32 px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none"
-                      />
-                    ) : (
-                      <input
-                        type="text"
-                        value={textValue}
-                        onChange={(e) => setTextValue(e.target.value)}
-                        placeholder="Enter your answer..."
-                        className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
-                      />
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {stepData.options?.map((option) => {
-                      const isSelected = selectedValues.includes(option.id)
-                      return (
-                        <button
-                          key={option.id}
-                          onClick={() => handleSelect(option.id)}
-                          className={`w-full p-4 rounded-xl border-2 text-left transition-all duration-200 ${
-                            isSelected
-                              ? 'bg-violet-500/20 border-violet-500'
-                              : 'bg-white/5 border-white/10 hover:border-white/30'
-                          }`}
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${
-                              isSelected 
-                                ? 'border-violet-400 bg-violet-400' 
-                                : 'border-white/30'
-                            }`}>
-                              {isSelected && <Check className="w-3 h-3 text-white" />}
-                            </div>
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium text-white">
-                                  {option.name}
-                                </span>
-                                {option.trending && (
-                                  <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full">
-                                    Trending
+                      
+                      {(stepData.serviceType === 'shopify' || stepData.serviceType === 'meta_ads') && (
+                        <div>
+                          <label className="block text-sm font-medium text-slate-300 mb-2">
+                            API Secret / Access Token (if required)
+                          </label>
+                          <input
+                            type="password"
+                            value={apiKeySecret}
+                            onChange={(e) => setApiKeySecret(e.target.value)}
+                            onPaste={(e) => {
+                              e.preventDefault()
+                              const pasted = e.clipboardData.getData('text')
+                              setApiKeySecret(pasted.trim())
+                            }}
+                            placeholder="Enter secret (optional)"
+                            className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 font-mono text-sm"
+                          />
+                        </div>
+                      )}
+                      
+                      <p className="text-xs text-slate-500">
+                        Your API keys are encrypted and stored securely. We never share or log your credentials.
+                      </p>
+                    </div>
+                  ) : stepData.inputType === 'text' || stepData.inputType === 'textarea' ? (
+                    <div className="space-y-3">
+                      {stepData.inputType === 'textarea' ? (
+                        <textarea
+                          value={textValue}
+                          onChange={(e) => setTextValue(e.target.value)}
+                          placeholder={stepData.placeholder || "Describe your niche..."}
+                          className="w-full h-32 px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500 resize-none"
+                        />
+                      ) : (
+                        <input
+                          type="text"
+                          value={textValue}
+                          onChange={(e) => setTextValue(e.target.value)}
+                          placeholder={stepData.placeholder || "Enter your answer..."}
+                          className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500"
+                        />
+                      )}
+                    </div>
+                  ) : stepData.inputType === 'number' ? (
+                    <div className="space-y-3">
+                      <div className="relative">
+                        {stepData.prefix && (
+                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                            {stepData.prefix}
+                          </span>
+                        )}
+                        <input
+                          type="number"
+                          value={numberValue}
+                          onChange={(e) => setNumberValue(e.target.value)}
+                          placeholder={stepData.placeholder || "Enter amount..."}
+                          min={stepData.min}
+                          max={stepData.max}
+                          className={`w-full ${stepData.prefix ? 'pl-8' : 'px-4'} py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-violet-500`}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {stepData.options?.map((option) => {
+                        const isSelected = selectedValues.includes(option.id)
+                        return (
+                          <button
+                            key={option.id}
+                            onClick={() => handleSelect(option.id)}
+                            className={`w-full p-4 rounded-xl border-2 text-left transition-all duration-200 ${
+                              isSelected
+                                ? 'bg-violet-500/20 border-violet-500'
+                                : 'bg-white/5 border-white/10 hover:border-white/30'
+                            }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                                isSelected 
+                                  ? 'border-violet-400 bg-violet-400' 
+                                  : 'border-white/30'
+                              }`}>
+                                {isSelected && <Check className="w-3 h-3 text-white" />}
+                              </div>
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-white">
+                                    {option.name}
                                   </span>
+                                  {option.trending && (
+                                    <span className="px-2 py-0.5 bg-green-500/20 text-green-400 text-xs rounded-full">
+                                      Trending
+                                    </span>
+                                  )}
+                                </div>
+                                {option.description && (
+                                  <p className="text-sm text-slate-400 mt-1">
+                                    {option.description}
+                                  </p>
+                                )}
+                                {option.example && (
+                                  <p className="text-sm text-violet-400/70 mt-1 italic">
+                                    "{option.example}"
+                                  </p>
                                 )}
                               </div>
-                              {option.description && (
-                                <p className="text-sm text-slate-400 mt-1">
-                                  {option.description}
-                                </p>
-                              )}
-                              {option.example && (
-                                <p className="text-sm text-violet-400/70 mt-1 italic">
-                                  "{option.example}"
-                                </p>
-                              )}
                             </div>
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
 
-                {error && (
-                  <motion.p
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mt-4 text-red-400 text-sm"
-                  >
-                    {error}
-                  </motion.p>
-                )}
-              </motion.div>
-            </AnimatePresence>
-          ) : null}
+                  {error && (
+                    <motion.p
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-4 text-red-400 text-sm"
+                    >
+                      {error}
+                    </motion.p>
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            ) : null}
+          </div>
+
+          {/* Footer */}
+          <div className="p-6 border-t border-white/10 bg-white/5">
+            <div className="flex items-center justify-between">
+              <Button
+                variant="outline"
+                onClick={handleBack}
+                disabled={currentStep === 1 || saving || (isIntegrationPhase && currentStep === totalSteps + 1)}
+                className="gap-2"
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Back
+              </Button>
+
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-slate-500">
+                  {isIntegrationPhase
+                    ? `Integration ${currentStep - totalSteps} of ${INTEGRATION_STEPS.length}`
+                    : selectedValues.length > 0 && stepData?.inputType === 'multi_select' 
+                      ? `${selectedValues.length} selected`
+                      : `${getTotalProgress()}% complete`
+                  }
+                </span>
+                <Button
+                  onClick={handleContinue}
+                  disabled={saving || loading}
+                  className="gap-2 bg-gradient-to-r from-violet-600 to-pink-600"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : isIntegrationPhase && currentStep === totalSteps + INTEGRATION_STEPS.length ? (
+                    <>
+                      Finish Setup
+                      <Check className="w-4 h-4" />
+                    </>
+                  ) : !isIntegrationPhase && currentStep === totalSteps ? (
+                    <>
+                      Continue to Integrations
+                      <ChevronRight className="w-4 h-4" />
+                    </>
+                  ) : (
+                    <>
+                      Continue
+                      <ChevronRight className="w-4 h-4" />
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
 
-        {/* Footer */}
-        <div className="p-6 border-t border-white/10 bg-white/5">
-          <div className="flex items-center justify-between">
-            <Button
-              variant="outline"
-              onClick={handleBack}
-              disabled={currentStep === 1 || saving}
-              className="gap-2"
-            >
-              <ChevronLeft className="w-4 h-4" />
-              Back
-            </Button>
+        {/* RIGHT - Progress Sidebar */}
+        <div className="w-72 bg-gradient-to-b from-violet-950/30 to-purple-950/30 border-l border-white/10 p-6 flex flex-col">
+          <h3 className="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-4">
+            Setup Progress
+          </h3>
+          
+          <div className="flex-1 space-y-4 overflow-y-auto">
+            {/* Onboarding Sections */}
+            <div>
+              <p className="text-xs text-slate-500 mb-2">Onboarding Questions</p>
+              <div className="space-y-2">
+                {[
+                  { name: 'Business Goals', icon: Target },
+                  { name: 'Store Identity', icon: Store },
+                  { name: 'Product Strategy', icon: Package },
+                  { name: 'Target Audience', icon: Users },
+                  { name: 'Brand & Marketing', icon: Megaphone },
+                  { name: 'Marketing Strategy', icon: TrendingUp },
+                  { name: 'Operations', icon: Settings },
+                ].map((section) => {
+                  const SectionIcon = section.icon
+                  const isActive = currentSection === section.name && !isIntegrationPhase
+                  const isCompleted = allSections.includes(section.name) && currentSection !== section.name
+                  
+                  return (
+                    <div 
+                      key={section.name}
+                      className={`flex items-center gap-2 p-2 rounded-lg text-sm ${
+                        isActive 
+                          ? 'bg-violet-500/20 text-violet-300' 
+                          : isCompleted
+                          ? 'text-green-400'
+                          : 'text-slate-500'
+                      }`}
+                    >
+                      {isCompleted ? (
+                        <Check className="w-4 h-4" />
+                      ) : (
+                        <SectionIcon className="w-4 h-4" />
+                      )}
+                      <span>{section.name}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
 
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-slate-500">
-                {isIntegrationPhase
-                  ? `Step ${currentStep - 11} of 4`
-                  : selectedValues.length > 0 && stepData?.inputType === 'multi_select' 
-                    ? `${selectedValues.length} selected`
-                    : `${Math.round(((currentStep - 1) / 11) * 100)}% complete`
-                }
-              </span>
-              <Button
-                onClick={handleContinue}
-                disabled={saving || loading}
-                className="gap-2 bg-gradient-to-r from-violet-600 to-pink-600"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : currentStep === 15 ? (
-                  <>
-                    Finish Setup
-                    <Check className="w-4 h-4" />
-                  </>
-                ) : currentStep === 11 ? (
-                  <>
-                    Continue to Integrations
-                    <ChevronRight className="w-4 h-4" />
-                  </>
-                ) : (
-                  <>
-                    Continue
-                    <ChevronRight className="w-4 h-4" />
-                  </>
-                )}
-              </Button>
+            {/* Integration Steps */}
+            <div>
+              <p className="text-xs text-slate-500 mb-2">API Integrations</p>
+              <div className="space-y-2">
+                {INTEGRATION_STEPS.map((step, idx) => {
+                  const stepNum = totalSteps + idx + 1
+                  const isActive = isIntegrationPhase && currentStep === stepNum
+                  const isCompleted = isIntegrationPhase && currentStep > stepNum
+                  
+                  return (
+                    <div 
+                      key={step.stepName}
+                      className={`flex items-center gap-2 p-2 rounded-lg text-sm ${
+                        isActive 
+                          ? 'bg-violet-500/20 text-violet-300' 
+                          : isCompleted
+                          ? 'text-green-400'
+                          : 'text-slate-500'
+                      }`}
+                    >
+                      {isCompleted ? (
+                        <Check className="w-4 h-4" />
+                      ) : (
+                        <Key className="w-4 h-4" />
+                      )}
+                      <span>{step.stepName.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Summary */}
+          <div className="mt-4 pt-4 border-t border-white/10">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-slate-400">Progress</span>
+              <span className="text-white font-medium">{getTotalProgress()}%</span>
+            </div>
+            <div className="mt-2 h-2 bg-white/10 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-violet-500 to-pink-500 transition-all duration-300"
+                style={{ width: `${getTotalProgress()}%` }}
+              />
             </div>
           </div>
         </div>
