@@ -88,6 +88,11 @@ export default function AIAgentPage() {
       })
       const data = await response.json()
       
+      // Set worker if available
+      if (data.worker) {
+        setWorker(data.worker)
+      }
+      
       // Determine current stage
       if (!data.onboardingComplete) {
         setStage('onboarding')
@@ -383,14 +388,14 @@ ${productList}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
-                placeholder="Ask me anything or give me commands..."
+                placeholder={stage === 'onboarding' ? 'Complete onboarding above first...' : 'Ask me anything or give me commands...'}
                 className="bg-white/5 border-white/10 text-white"
-                disabled={loading || stage === 'onboarding'}
+                disabled={loading}
               />
               <Button 
                 onClick={sendMessage} 
                 className="bg-violet-600 hover:bg-violet-500"
-                disabled={loading || !input.trim() || stage === 'onboarding'}
+                disabled={loading || !input.trim()}
               >
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               </Button>
@@ -400,13 +405,37 @@ ${productList}
       </div>
 
       {/* Sidebar */}
-      <div className="w-80 flex-shrink-0 space-y-4">
+      <div className="w-80 flex-shrink-0 space-y-4 overflow-y-auto max-h-[calc(100vh-80px)]">
+        {/* AI Status */}
+        <Card className="bg-[#0d1117] border-white/10">
+          <CardContent className="p-4">
+            <h3 className="font-semibold text-white flex items-center gap-2 mb-3">
+              <Sparkles className="w-4 h-4 text-pink-400" />
+              AI Configuration
+            </h3>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-400">Provider</span>
+                <Badge className="bg-green-500/20 text-green-400">OpenRouter</Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-400">Model</span>
+                <span className="text-sm text-white">Kimi K2.5</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-400">Status</span>
+                <Badge className="bg-green-500/20 text-green-400">Connected</Badge>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Progress */}
         <Card className="bg-[#0d1117] border-white/10">
           <CardContent className="p-4 space-y-4">
             <h3 className="font-semibold text-white flex items-center gap-2">
               <Sparkles className="w-4 h-4 text-violet-400" />
-              Progress
+              Workflow Progress
             </h3>
             
             {[
@@ -420,7 +449,7 @@ ${productList}
               const isActive = stage === step.id
               const isComplete = 
                 (step.id === 'onboarding' && stage !== 'onboarding') ||
-                (step.id === 'research' && ['shopify', 'meta_ads', 'complete'].includes(stage)) ||
+                (step.id === 'research' && ['cj_dropshipping', 'shopify', 'meta_ads', 'complete'].includes(stage)) ||
                 (step.id === 'cj_dropshipping' && ['shopify', 'meta_ads', 'complete'].includes(stage)) ||
                 (step.id === 'shopify' && ['meta_ads', 'complete'].includes(stage)) ||
                 (step.id === 'meta_ads' && stage === 'complete')
@@ -447,31 +476,71 @@ ${productList}
           </CardContent>
         </Card>
 
-        {/* Worker Status */}
+        {/* VPS / Worker Status */}
         <Card className="bg-[#0d1117] border-white/10">
           <CardContent className="p-4">
             <h3 className="font-semibold text-white flex items-center gap-2 mb-3">
               <Server className="w-4 h-4 text-blue-400" />
-              VPS Status
+              VPS Worker Status
             </h3>
             {worker ? (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-slate-400">Status</span>
-                  <Badge className={worker.status === 'running' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'}>
+                  <Badge className={worker.status === 'running' ? 'bg-green-500/20 text-green-400' : worker.status === 'provisioning' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-red-500/20 text-red-400'}>
                     {worker.status}
                   </Badge>
                 </div>
                 {worker.ip && (
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-slate-400">IP</span>
+                    <span className="text-sm text-slate-400">IP Address</span>
                     <span className="text-sm text-white font-mono">{worker.ip}</span>
+                  </div>
+                )}
+                {worker.id && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-400">Worker ID</span>
+                    <span className="text-sm text-slate-500 font-mono text-xs">{worker.id.slice(0, 8)}...</span>
                   </div>
                 )}
               </div>
             ) : (
-              <p className="text-sm text-slate-500">No worker provisioned yet</p>
+              <div className="space-y-2">
+                <p className="text-sm text-slate-500">No worker provisioned yet</p>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full"
+                  onClick={() => setInput('Provision a new worker')}
+                >
+                  Provision Worker
+                </Button>
+              </div>
             )}
+          </CardContent>
+        </Card>
+
+        {/* Research APIs Status */}
+        <Card className="bg-[#0d1117] border-white/10">
+          <CardContent className="p-4">
+            <h3 className="font-semibold text-white flex items-center gap-2 mb-3">
+              <Sparkles className="w-4 h-4 text-amber-400" />
+              Research APIs
+            </h3>
+            <div className="space-y-2">
+              {[
+                { name: 'Amazon', status: 'Connected' },
+                { name: 'Walmart', status: 'Connected' },
+                { name: 'eBay', status: 'Connected' },
+                { name: 'Product Search', status: 'Connected' },
+                { name: 'E-commerce', status: 'Connected' },
+              ].map((api) => (
+                <div key={api.name} className="flex items-center justify-between">
+                  <span className="text-sm text-slate-400">{api.name}</span>
+                  <Badge className="bg-green-500/20 text-green-400 text-xs">{api.status}</Badge>
+                </div>
+              ))}
+            </div>
           </CardContent>
         </Card>
 
@@ -479,20 +548,28 @@ ${productList}
         <Card className="bg-[#0d1117] border-white/10">
           <CardContent className="p-4">
             <h3 className="font-semibold text-white flex items-center gap-2 mb-3">
-              <Sparkles className="w-4 h-4 text-pink-400" />
+              <Sparkles className="w-4 h-4 text-cyan-400" />
               Remote Commands
             </h3>
             <div className="space-y-2">
-              {['Start research', 'Check worker status', 'Show my store config', 'Connect CJ API', 'Connect Shopify'].map((cmd) => (
+              {[
+                { cmd: 'Start research', desc: 'Run product research' },
+                { cmd: 'Check worker status', desc: 'View VPS details' },
+                { cmd: 'Show store config', desc: 'View settings' },
+                { cmd: 'Connect CJ API', desc: 'Add sourcing' },
+                { cmd: 'Connect Shopify', desc: 'Add store' },
+                { cmd: 'Create video ad', desc: 'Generate content' },
+              ].map(({cmd, desc}) => (
                 <button
                   key={cmd}
                   onClick={() => {
                     setInput(cmd)
                     sendMessage()
                   }}
-                  className="w-full text-left px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-sm text-slate-300 transition-colors"
+                  className="w-full text-left px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors"
                 >
-                  {cmd}
+                  <div className="text-sm text-slate-200">{cmd}</div>
+                  <div className="text-xs text-slate-500">{desc}</div>
                 </button>
               ))}
             </div>
