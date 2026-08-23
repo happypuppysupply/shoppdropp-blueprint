@@ -28,7 +28,7 @@ interface Message {
   type?: 'text' | 'question' | 'form'
   formData?: {
     questionId: string
-    type: 'cards' | 'chips' | 'text' | 'number'
+    type: 'cards' | 'chips' | 'text' | 'number' | 'slider'
     options?: string[]
     multi?: boolean
     placeholder?: string
@@ -422,6 +422,31 @@ export function AIOnboarding({ storeId, onComplete, onRestart }: AIOnboardingPro
                         className="bg-violet-600 hover:bg-violet-500"
                       >
                         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ChevronRight className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                  )}
+
+                  {msg.formData.type === 'slider' && (
+                    <div className="space-y-4 p-4 bg-white/5 rounded-xl">
+                      <input
+                        type="range"
+                        min="0"
+                        max="100"
+                        value={numberValue || '50'}
+                        onChange={(e) => setNumberValue(e.target.value)}
+                        className="w-full h-2 bg-violet-500/20 rounded-lg appearance-none cursor-pointer accent-violet-500"
+                      />
+                      <div className="flex justify-between text-sm text-slate-400">
+                        <span>0</span>
+                        <span className="text-violet-400 font-medium">{numberValue || '50'}</span>
+                        <span>100</span>
+                      </div>
+                      <Button 
+                        onClick={() => submitAnswer()}
+                        disabled={loading}
+                        className="w-full bg-violet-600 hover:bg-violet-500"
+                      >
+                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Continue'}
                       </Button>
                     </div>
                   )}
