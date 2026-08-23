@@ -20,8 +20,28 @@ export function SimpleOnboarding({ storeId, onComplete }: SimpleOnboardingProps)
   const [numberValue, setNumberValue] = useState('')
   const [loading, setLoading] = useState(false)
   const [completed, setCompleted] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Safety check - ensure questions exist
+  if (!ONBOARDING_QUESTIONS || ONBOARDING_QUESTIONS.length === 0) {
+    return (
+      <div className="p-6 bg-red-500/20 border border-red-500/30 rounded-xl">
+        <p className="text-red-400">Error: Onboarding questions not loaded</p>
+      </div>
+    )
+  }
 
   const currentQuestion = ONBOARDING_QUESTIONS[currentIndex]
+  
+  // Safety check - ensure current question exists
+  if (!currentQuestion) {
+    return (
+      <div className="p-6 bg-red-500/20 border border-red-500/30 rounded-xl">
+        <p className="text-red-400">Error: Invalid question index</p>
+      </div>
+    )
+  }
+
   const progress = Math.round(((currentIndex) / ONBOARDING_QUESTIONS.length) * 100)
 
   const handleSelect = (option: string) => {
@@ -76,8 +96,9 @@ export function SimpleOnboarding({ storeId, onComplete }: SimpleOnboardingProps)
         setCompleted(true)
         setTimeout(onComplete, 1500)
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to save:', err)
+      setError(err.message || 'Failed to save answer')
     } finally {
       setLoading(false)
     }
@@ -118,6 +139,13 @@ export function SimpleOnboarding({ storeId, onComplete }: SimpleOnboardingProps)
           style={{ width: `${progress}%` }}
         />
       </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="mb-4 p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
+          <p className="text-sm text-red-400">{error}</p>
+        </div>
+      )}
 
       {/* Question */}
       <div className="mb-6">
