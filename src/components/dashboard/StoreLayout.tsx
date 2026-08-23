@@ -105,8 +105,10 @@ export function StoreLayout({ children }: { children: React.ReactNode }) {
       // Try to load from backend API first (for Happy Puppy store)
       try {
         const storesFromApi = await api.stores.list()
-        if (storesFromApi && storesFromApi.length > 0) {
-          setStores(storesFromApi)
+        // Handle both { stores: [...] } and [...] formats
+        const storesArray = storesFromApi?.stores || storesFromApi
+        if (storesArray && storesArray.length > 0) {
+          setStores(storesArray)
           return
         }
       } catch (apiError) {
