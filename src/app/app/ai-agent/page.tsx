@@ -1910,13 +1910,67 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                     <CheckCircle2 className="w-3 h-3 mr-1" />
                     Ready
                   </Badge>
+                ) : workerStatus === 'provisioning' ? (
+                  <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs">
+                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    Provisioning
+                  </Badge>
                 ) : (
                   <Badge className="bg-yellow-500/20 text-yellow-400 border-yellow-500/30 text-xs">
-                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                    <AlertCircle className="w-3 h-3 mr-1" />
                     Pending
                   </Badge>
                 )}
               </div>
+              
+              {/* Provisioning Progress UI */}
+              {!activeWorker && workerStatus === 'provisioning' && (
+                <div className="mt-3 space-y-2">
+                  <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-violet-500 to-pink-500 rounded-full animate-pulse" style={{ width: '60%' }} />
+                  </div>
+                  <div className="space-y-1">
+                    {[
+                      { step: 'Creating server instance', done: true },
+                      { step: 'Installing OpenClaw Gateway', done: true },
+                      { step: 'Configuring AI worker', done: false },
+                      { step: 'Starting services', done: false },
+                    ].map((item, idx) => (
+                      <div key={idx} className="flex items-center gap-2 text-xs">
+                        {item.done ? (
+                          <CheckCircle2 className="w-3 h-3 text-green-400" />
+                        ) : (
+                          <div className="w-3 h-3 rounded-full border border-white/20" />
+                        )}
+                        <span className={item.done ? 'text-slate-300' : 'text-slate-500'}>
+                          {item.step}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-2">
+                    This takes ~3-5 minutes. You can start onboarding while waiting.
+                  </p>
+                </div>
+              )}
+              
+              {/* Provision Button when no worker */}
+              {!activeWorker && workerStatus !== 'provisioning' && (
+                <div className="mt-3">
+                  <Button 
+                    size="sm" 
+                    className="w-full bg-gradient-to-r from-violet-500 to-pink-500 hover:from-violet-600 hover:to-pink-600"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setInput('provision a vps worker')
+                    }}
+                  >
+                    <Rocket className="w-4 h-4 mr-2" />
+                    Provision VPS
+                  </Button>
+                </div>
+              )}
+              
               {activeWorker && (
                 <p className="text-xs text-slate-500">
                   Worker online at {activeWorker.ip || '...'}
@@ -1948,8 +2002,29 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                 )}
               </div>
               
+              {/* Start Onboarding Button */}
+              {!workflowStatus?.onboardingComplete && Object.keys(onboardingAnswers).length === 0 && (
+                <div className="mt-3">
+                  <Button 
+                    size="sm" 
+                    className="w-full bg-violet-500 hover:bg-violet-600"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setShowInlineOnboarding(true)
+                      setMessages(prev => [...prev, {
+                        role: 'assistant',
+                        content: 'Welcome! Let\'s start your store setup. I\'ll ask you 27 questions to understand your business goals and create a personalized strategy.'
+                      }])
+                    }}
+                  >
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    Start Onboarding
+                  </Button>
+                </div>
+              )}
+              
               {/* Progress bar */}
-              <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+              <div className="h-2 bg-white/10 rounded-full overflow-hidden mt-2">
                 <div 
                   className="h-full rounded-full bg-violet-500 transition-all"
                   style={{ width: `${workflowStatus?.onboardingComplete ? 100 : Math.min(100, (Object.keys(onboardingAnswers).length / TOTAL_ONBOARDING_QUESTIONS) * 100)}%` }}
