@@ -53,24 +53,32 @@ export default function AIAgentPage() {
   const initialize = async () => {
     try {
       setInitError(null)
+      console.log('[Init] Starting initialization, token exists:', !!token)
       
       // Get existing stores
       const response = await fetch(`${API_URL}/api/stores`, {
         headers: { 'Authorization': `Bearer ${token}` }
       })
       
+      console.log('[Init] Stores response:', response.status)
+      
       if (!response.ok) {
-        throw new Error(`Failed to fetch stores: ${response.status}`)
+        const errText = await response.text()
+        console.error('[Init] Stores fetch failed:', errText)
+        throw new Error(`Failed to fetch stores: ${response.status} - ${errText}`)
       }
       
       const data = await response.json()
+      console.log('[Init] Stores data:', data)
       
       if (data.stores?.length > 0) {
         // Use first existing store
         const store = data.stores[0]
+        console.log('[Init] Using existing store:', store.id)
         setStoreId(store.id)
         await checkWorkflowStatus(store.id)
       } else {
+        console.log('[Init] No stores found, creating new one')
         // Create new store
         const createRes = await fetch(`${API_URL}/api/stores`, {
           method: 'POST',
@@ -81,17 +89,21 @@ export default function AIAgentPage() {
           body: JSON.stringify({ name: 'My Store', url: 'https://mystore.myshopify.com' })
         })
         
+        console.log('[Init] Create store response:', createRes.status)
+        
         if (!createRes.ok) {
           const errData = await createRes.json().catch(() => ({}))
+          console.error('[Init] Create store failed:', errData)
           throw new Error(errData.error || `Failed to create store: ${createRes.status}`)
         }
         
         const newStore = await createRes.json()
+        console.log('[Init] Created store:', newStore.id)
         setStoreId(newStore.id)
         await checkWorkflowStatus(newStore.id)
       }
     } catch (error: any) {
-      console.error('Failed to initialize:', error)
+      console.error('[Init] Failed to initialize:', error)
       setInitError(error.message || 'Failed to initialize store')
     }
   }
