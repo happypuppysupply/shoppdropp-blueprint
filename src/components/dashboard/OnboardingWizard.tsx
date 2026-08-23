@@ -115,46 +115,46 @@ const INTEGRATION_STEPS: OnboardingStep[] = [
   },
   {
     stepNumber: 5,
-    stepName: 'openweb_ninja_amazon',
+    stepName: 'openwebninja_amazon',
     prompt: 'Connect OpenWeb Ninja Amazon API for real-time Amazon product data, pricing analysis, and competitor research. This helps the AI find profitable products and analyze market demand on Amazon.',
     inputType: 'api_key',
-    serviceType: 'openweb_ninja_amazon',
+    serviceType: 'openwebninja_amazon',
     docsUrl: 'https://app.openwebninja.com/api/realtime-amazon-data/overview',
     validation: { required: false }
   },
   {
     stepNumber: 6,
-    stepName: 'openweb_ninja_walmart',
+    stepName: 'openwebninja_walmart',
     prompt: 'Connect OpenWeb Ninja Walmart API for Walmart marketplace product research and pricing intelligence. This helps the AI identify products with good margins on Walmart.',
     inputType: 'api_key',
-    serviceType: 'openweb_ninja_walmart',
+    serviceType: 'openwebninja_walmart',
     docsUrl: 'https://app.openwebninja.com/api/realtime-walmart-data/overview',
     validation: { required: false }
   },
   {
     stepNumber: 7,
-    stepName: 'openweb_ninja_ebay',
+    stepName: 'openwebninja_ebay',
     prompt: 'Connect OpenWeb Ninja eBay API for eBay marketplace analysis and trending product discovery. This helps the AI understand what products are selling well on eBay.',
     inputType: 'api_key',
-    serviceType: 'openweb_ninja_ebay',
+    serviceType: 'openwebninja_ebay',
     docsUrl: 'https://app.openwebninja.com/api/realtime-ebay-data/overview',
     validation: { required: false }
   },
   {
     stepNumber: 8,
-    stepName: 'openweb_ninja_product_search',
+    stepName: 'openwebninja_product_search',
     prompt: 'Connect OpenWeb Ninja Real-Time Product Search API for lightweight, fast product lookups across multiple marketplaces. Great for quick price comparisons and availability checks.',
     inputType: 'api_key',
-    serviceType: 'openweb_ninja_product_search',
+    serviceType: 'openwebninja_product_search',
     docsUrl: 'https://app.openwebninja.com/api/realtime-product-search/overview',
     validation: { required: false }
   },
   {
     stepNumber: 9,
-    stepName: 'openweb_ninja_ecommerce',
+    stepName: 'openwebninja_ecommerce',
     prompt: 'Connect OpenWeb Ninja Real-Time E-commerce Data API for unified product data across multiple platforms. Provides comprehensive product information, reviews, and pricing history.',
     inputType: 'api_key',
-    serviceType: 'openweb_ninja_ecommerce',
+    serviceType: 'openwebninja_ecommerce',
     docsUrl: 'https://app.openwebninja.com/api/realtime-ecommerce-data/overview',
     validation: { required: false }
   },
@@ -313,7 +313,7 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
           // Check if we should skip OpenWeb Ninja steps
           const nextStep = INTEGRATION_STEPS[integrationIndex + 1]
           if (useOwnResearchAPIs === false && 
-              nextStep?.serviceType?.startsWith('openweb_ninja')) {
+              nextStep?.serviceType?.startsWith('openwebninja')) {
             // Skip to Google Trends (last step)
             setCurrentStep(totalSteps + INTEGRATION_STEPS.length)
           } else {
@@ -409,11 +409,11 @@ export function OnboardingWizard({ storeId, onComplete, onSkip }: OnboardingWiza
         case 'meta_ads': return Megaphone
         case 'cj_dropshipping': return Truck
         case 'shopify': return ShoppingBag
-        case 'openweb_ninja_amazon': return Search
-        case 'openweb_ninja_walmart': return Search
-        case 'openweb_ninja_ebay': return Search
-        case 'openweb_ninja_product_search': return Search
-        case 'openweb_ninja_ecommerce': return Search
+        case 'openwebninja_amazon': return Search
+        case 'openwebninja_walmart': return Search
+        case 'openwebninja_ebay': return Search
+        case 'openwebninja_product_search': return Search
+        case 'openwebninja_ecommerce': return Search
         case 'google_trends': return BarChart3
         default: return Key
       }
