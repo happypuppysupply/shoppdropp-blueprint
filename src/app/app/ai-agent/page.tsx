@@ -14,7 +14,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
-import { OnboardingWizard } from '@/components/dashboard/OnboardingWizard'
+import { InlineOnboarding } from '@/components/dashboard/InlineOnboarding'
 import { SliderForm } from '@/components/agent/SliderForm'
 import { NumberForm } from '@/components/agent/NumberForm'
 import { ConnectAPIForm } from '@/components/agent/ConnectAPIForm'
@@ -424,6 +424,7 @@ export default function AIAgentPage() {
   const [workflowStatus, setWorkflowStatus] = useState<WorkflowStatus | null>(null)
   const [loadingWorkflow, setLoadingWorkflow] = useState(true)
   const [showOnboarding, setShowOnboarding] = useState(false)
+  const [showInlineOnboarding, setShowInlineOnboarding] = useState(false)
   const [hasGreeted, setHasGreeted] = useState(false)
   
   // Sidebar view state
@@ -500,13 +501,24 @@ export default function AIAgentPage() {
 
   // Show onboarding if workflow not ready and has active store
   useEffect(() => {
-    if (!loadingWorkflow && workflowStatus && !workflowStatus.canStartWorkflow && context?.stores?.[0] && !showOnboarding && aiConfig) {
+    if (!loadingWorkflow && workflowStatus && !workflowStatus.canStartWorkflow && context?.stores?.[0] && !showOnboarding && !showInlineOnboarding && aiConfig) {
       const shouldShow = !workflowStatus.onboardingComplete || workflowStatus.missingRequirements.length > 0
       if (shouldShow) {
-        setShowOnboarding(true)
+        // Show inline onboarding in chat instead of modal
+        setShowInlineOnboarding(true)
+        // Add a message prompting to complete onboarding
+        setMessages(prev => {
+          // Check if we already have an onboarding message
+          const hasOnboardingMsg = prev.some(m => m.role === 'assistant' && m.content.includes('complete your store setup'))
+          if (hasOnboardingMsg) return prev
+          return [...prev, {
+            role: 'assistant',
+            content: 'Welcome! To get started, I need to learn about your store. Please complete the setup below:',
+          }]
+        })
       }
     }
-  }, [loadingWorkflow, workflowStatus, context, showOnboarding, aiConfig])
+  }, [loadingWorkflow, workflowStatus, context, showOnboarding, showInlineOnboarding, aiConfig])
 
   // Show greeting when onboarding completes
   useEffect(() => {
@@ -2548,11 +2560,17 @@ Next, I need to learn about your store to provide personalized assistance. Let's
 
       {/* Onboarding Modal */}
       {showOnboarding && activeStore && (
-        <OnboardingWizard 
-          storeId={activeStore.id}
-          onComplete={handleOnboardingComplete}
-          onSkip={() => setShowOnboarding(false)}
-        />
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <InlineOnboarding 
+              storeId={activeStore.id}
+              onComplete={handleOnboardingComplete}
+              onRestart={() => {
+                // Reset will be handled by the component
+              }}
+            />
+          </div>
+        </div>
       )}
     </div>
   )
