@@ -528,6 +528,55 @@ export default function AIAgentPage() {
   //   }
   // }, [workflowStatus, hasGreeted, loadingWorkflow, aiConfig])
 
+  // Auto-configure ShoppDropp AI on load if no config exists
+  useEffect(() => {
+    const autoConfigureAI = async () => {
+      if (!isAuthenticated || aiConfig !== null) return
+      
+      try {
+        const token = authToken || session?.access_token
+        if (!token) return
+        
+        // Check if already configured
+        const response = await fetch(`${API_URL}/api/ai/config`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          if (data.configured) {
+            setAiConfig({ provider: data.provider, model: data.model })
+            return
+          }
+        }
+        
+        // Auto-configure with ShoppDropp AI
+        console.log('[AI] Auto-configuring with ShoppDropp AI...')
+        const saveResponse = await fetch(`${API_URL}/api/ai/config`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            provider: 'openrouter',
+            model: 'moonshotai/kimi-k2.5',
+            usePlatformAI: true,
+          }),
+        })
+        
+        if (saveResponse.ok) {
+          setAiConfig({ provider: 'openrouter', model: 'moonshotai/kimi-k2.5' })
+          console.log('[AI] Auto-configured successfully')
+        }
+      } catch (error) {
+        console.error('[AI] Auto-configure failed:', error)
+      }
+    }
+    
+    autoConfigureAI()
+  }, [isAuthenticated, aiConfig, authToken, session])
+
   // Connect WebSocket when AI is configured
   useEffect(() => {
     if (aiConfig && !wsRef.current) {
