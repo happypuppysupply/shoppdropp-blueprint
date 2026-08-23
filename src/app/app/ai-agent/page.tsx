@@ -602,6 +602,9 @@ export default function AIAgentPage() {
         })
         clearTimeout(saveTimeout)
         
+        if (saveResponse.ok) {
+          console.log('[AI] Auto-configured successfully')
+          setAiConfig({ provider: 'openrouter', model: 'moonshotai/kimi-k2.5' })
         } else {
           const errData = await saveResponse.json().catch(() => ({}))
           console.error('[AI] Auto-configure failed:', errData.error || saveResponse.status)
