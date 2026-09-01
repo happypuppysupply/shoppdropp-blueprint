@@ -253,6 +253,25 @@ export function AIOnboarding({ storeId, onComplete, onRestart }: AIOnboardingPro
     
     setMessages(prev => [...prev, completionMessage])
     
+    // Save onboarding answers to backend FIRST
+    try {
+      await api.request(`/onboarding/complete`, {
+        method: 'POST',
+        body: JSON.stringify({
+          storeId,
+          storeName: answers.store_name || 'My Store',
+          onboardingData: {
+            onboarding_answers: answers,
+            current_question_index: ONBOARDING_QUESTIONS.length,
+            onboarding_status: 'complete'
+          }
+        })
+      })
+      console.log('[Onboarding] Saved to backend successfully')
+    } catch (err) {
+      console.error('[Onboarding] Failed to save:', err)
+    }
+    
     // Configure system AI and APIs
     await configureSystemServices()
     
