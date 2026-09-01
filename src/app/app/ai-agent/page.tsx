@@ -437,12 +437,6 @@ export default function AIAgentPage() {
   const [researchActivities, setResearchActivities] = useState<Array<{type: string, message: string, timestamp: string}>>([])
   const [researchRunId, setResearchRunId] = useState<string | null>(null)
   
-  // Research WebSocket state
-  const [researchWs, setResearchWs] = useState<WebSocket | null>(null)
-  const [researchStatus, setResearchStatus] = useState<'idle' | 'running' | 'completed' | 'failed'>('idle')
-  const [researchActivities, setResearchActivities] = useState<Array<{type: string, message: string, timestamp: string}>>([])
-  const [researchRunId, setResearchRunId] = useState<string | null>(null)
-  
   // Onboarding state
   const [onboardingStep, setOnboardingStep] = useState(0)
   const [onboardingAnswers, setOnboardingAnswers] = useState<Record<string, string>>({})
@@ -1963,12 +1957,9 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                       onComplete={() => {
                         setShowInlineOnboarding(false)
                         loadWorkflowStatus()
-                        // Start research workflow message
+                        // Start research workflow with WebSocket
                         setTimeout(() => {
-                          setMessages(prev => [...prev, {
-                            role: 'assistant',
-                            content: '🎯 **Starting Product Research Workflow**\n\nNow I\'ll analyze market opportunities in your niche using our research APIs. This includes:\n• Amazon best-seller analysis\n• Walmart pricing intelligence\n• eBay trending products\n• Google Trends seasonality data\n\nLet me find high-margin products that match your criteria...'
-                          }])
+                          startResearchWorkflow()
                         }, 1000)
                       }}
                       onRestart={() => {
