@@ -431,6 +431,17 @@ export default function AIAgentPage() {
   
   // Sidebar view state
   const [sidebarView, setSidebarView] = useState<'setup' | 'vps' | 'onboarding' | 'api' | 'workflow'>('setup')
+  // Research WebSocket state
+  const [researchWs, setResearchWs] = useState<WebSocket | null>(null)
+  const [researchStatus, setResearchStatus] = useState<"idle" | "running" | "completed" | "failed">("idle")
+  const [researchActivities, setResearchActivities] = useState<Array<{type: string, message: string, timestamp: string}>>([])
+  const [researchRunId, setResearchRunId] = useState<string | null>(null)
+  
+  // Research WebSocket state
+  const [researchWs, setResearchWs] = useState<WebSocket | null>(null)
+  const [researchStatus, setResearchStatus] = useState<'idle' | 'running' | 'completed' | 'failed'>('idle')
+  const [researchActivities, setResearchActivities] = useState<Array<{type: string, message: string, timestamp: string}>>([])
+  const [researchRunId, setResearchRunId] = useState<string | null>(null)
   
   // Onboarding state
   const [onboardingStep, setOnboardingStep] = useState(0)
