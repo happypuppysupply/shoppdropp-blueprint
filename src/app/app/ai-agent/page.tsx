@@ -10,7 +10,7 @@ import {
   Bot, Send, Sparkles, Server, Store, AlertCircle, CheckCircle2, 
   Loader2, Wallet, TrendingUp, Settings, Activity, Zap, 
   Shield, CreditCard, ChevronRight, Rocket, LayoutTemplate, Brain, X, AlertTriangle,
-  CheckSquare, Square, Lock, ShoppingBag, Share2, Truck, Save, Target, Users
+  CheckSquare, Square, Lock, ShoppingBag, Share2, Truck, Save, Target, Users, Search
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
@@ -106,7 +106,7 @@ const AI_PROVIDERS = [
   },
 ]
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://shoppdropp-api.onrender.com'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://shopdrodpp-api.onrender.com'
 
 // Animated thinking dots component
 function ThinkingDots() {
@@ -776,44 +776,43 @@ export default function AIAgentPage() {
     }
   }
 
-  async function loadWorkflowStatus() {
+  // Fetch workflow status from API and return the data directly (for polling)
+  async function fetchWorkflowStatus(): Promise<WorkflowStatus | null> {
     try {
       const token = authToken || session?.access_token
-      if (!token) {
-        setLoadingWorkflow(false)
-        return
-      }
-      
+      if (!token) return null
+
       const storeRes = await fetch(`${API_URL}/api/stores`, {
         headers: { 'Authorization': `Bearer ${token}` },
       })
-      
-      if (!storeRes.ok) {
-        setLoadingWorkflow(false)
-        return
-      }
-      
+      if (!storeRes.ok) return null
+
       const stores = await storeRes.json()
-      if (stores.length === 0) {
-        setLoadingWorkflow(false)
-        return
-      }
-      
+      if (stores.length === 0) return null
+
       const storeId = stores[0].id
-      
       const response = await fetch(`${API_URL}/api/onboarding/workflow-status/${storeId}`, {
         headers: { 'Authorization': `Bearer ${token}` },
       })
 
       if (response.ok) {
         const data = await response.json()
-        setWorkflowStatus(data)
+        return data as WorkflowStatus
       }
+      return null
     } catch (error) {
-      console.error('Failed to load workflow status:', error)
-    } finally {
-      setLoadingWorkflow(false)
+      console.error('Failed to fetch workflow status:', error)
+      return null
     }
+  }
+
+  async function loadWorkflowStatus() {
+    setLoadingWorkflow(true)
+    const data = await fetchWorkflowStatus()
+    if (data) {
+      setWorkflowStatus(data)
+    }
+    setLoadingWorkflow(false)
   }
 
   const handleOnboardingComplete = () => {
@@ -1952,14 +1951,30 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                 <div className="w-8" />
                 <div className="flex-1 max-w-[90%]">
                   <div className="bg-[#111118] border border-violet-500/30 rounded-2xl overflow-hidden max-h-[600px]">
-                    <AIOnboarding 
+                    <AIOnboarding
                       storeId={activeStore.id}
                       onComplete={() => {
                         setShowInlineOnboarding(false)
-                        loadWorkflowStatus()
-                        // Start research workflow with WebSocket
-                        setTimeout(() => {
-                          startResearchWorkflow()
+                        // Poll workflow status directly until onboardingComplete is true, then start research
+                        let attempts = 0
+                        const maxAttempts = 30 // 30 seconds max
+                        const pollInterval = setInterval(async () => {
+                          attempts++
+                          const status = await fetchWorkflowStatus()
+                          if (status) {
+                            setWorkflowStatus(status)
+                            if (status.onboardingComplete) {
+                              clearInterval(pollInterval)
+                              // Start research workflow once onboarding is confirmed complete
+                              startResearchWorkflow()
+                              return
+                            }
+                          }
+                          if (attempts >= maxAttempts) {
+                            clearInterval(pollInterval)
+                            // Start research anyway after max attempts
+                            startResearchWorkflow()
+                          }
                         }, 1000)
                       }}
                       onRestart={() => {
@@ -2001,6 +2016,20 @@ Next, I need to learn about your store to provide personalized assistance. Let's
           </CardContent>
           
           <CardHeader className="border-t border-white/10 pt-4">
+            {workflowStatus?.onboardingComplete && (
+              <Button
+                onClick={startResearchWorkflow}
+                disabled={researchStatus === 'running' || loading}
+                className="w-full mb-3 bg-gradient-to-r from-pink-600 to-violet-600 hover:from-pink-500 hover:to-violet-500 text-white font-semibold py-3 rounded-xl shadow-lg shadow-pink-500/20 transition-all"
+              >
+                {researchStatus === 'running' ? (
+                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                ) : (
+                  <Search className="w-5 h-5 mr-2" />
+                )}
+                {researchStatus === 'running' ? 'Researching...' : 'Start Research'}
+              </Button>
+            )}
             <div className="flex gap-2">
               <Input
                 value={input}
@@ -2170,8 +2199,8 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                 )}
               </div>
               
-              {/* Start Onboarding Button */}
-              {!workflowStatus?.onboardingComplete && Object.keys(onboardingAnswers).length === 0 && (
+              {/* Start Onboarding Button - only show when not started AND not currently running */}
+              {!workflowStatus?.onboardingComplete && !showInlineOnboarding && Object.keys(onboardingAnswers).length === 0 && (
                 <div className="mt-3">
                   <Button 
                     size="sm" 
@@ -2181,12 +2210,34 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                       setShowInlineOnboarding(true)
                       setMessages(prev => [...prev, {
                         role: 'assistant',
-                        content: 'Welcome! Let\'s start your store setup. I\'ll ask you 27 questions to understand your business goals and create a personalized strategy.'
+                        content: 'Welcome! I\'ll ask you 5 quick questions to understand your business vision. This takes about 2 minutes.'
                       }])
                     }}
                   >
                     <Sparkles className="w-4 h-4 mr-2" />
                     Start Onboarding
+                  </Button>
+                </div>
+              )}
+              
+              {/* Start Research Button - show when onboarding is complete */}
+              {workflowStatus?.onboardingComplete && (
+                <div className="mt-3">
+                  <Button 
+                    size="sm" 
+                    className="w-full bg-gradient-to-r from-pink-500 to-violet-500 hover:from-pink-400 hover:to-violet-400 text-white"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      startResearchWorkflow()
+                    }}
+                    disabled={researchStatus === 'running'}
+                  >
+                    {researchStatus === 'running' ? (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    ) : (
+                      <Rocket className="w-4 h-4 mr-2" />
+                    )}
+                    {researchStatus === 'running' ? 'Researching...' : 'Start Research'}
                   </Button>
                 </div>
               )}
@@ -2283,7 +2334,7 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                   className="w-full bg-violet-600 hover:bg-violet-500"
                   onClick={(e) => {
                     e.stopPropagation()
-                    setInput('start my store workflow')
+                    startResearchWorkflow()
                   }}
                 >
                   <Rocket className="w-4 h-4 mr-2" />
@@ -2310,17 +2361,17 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                 <div className="flex justify-between text-sm">
                   <span className="text-slate-400">Completion</span>
                   <span className="text-violet-400 font-medium">
-                    {workflowStatus?.onboardingComplete ? '100%' : `${Math.min(100, Math.round((Object.keys(onboardingAnswers).length / 27) * 100))}%`}
+                    {workflowStatus?.onboardingComplete ? '100%' : `${Math.min(100, Math.round((Object.keys(onboardingAnswers).length / 5) * 100))}%`}
                   </span>
                 </div>
                 <div className="h-2 bg-white/10 rounded-full overflow-hidden">
                   <div 
                     className="h-full rounded-full bg-violet-500 transition-all"
-                    style={{ width: `${workflowStatus?.onboardingComplete ? 100 : Math.min(100, Math.round((Object.keys(onboardingAnswers).length / 27) * 100))}%` }}
+                    style={{ width: `${workflowStatus?.onboardingComplete ? 100 : Math.min(100, Math.round((Object.keys(onboardingAnswers).length / 5) * 100))}%` }}
                   />
                 </div>
                 <p className="text-xs text-slate-500">
-                  {Object.keys(onboardingAnswers).length} of 27 questions answered
+                  {Object.keys(onboardingAnswers).length} of 5 questions answered
                 </p>
               </div>
 
@@ -2656,7 +2707,7 @@ Next, I need to learn about your store to provide personalized assistance. Let's
 
                   <Button 
                     className="w-full bg-violet-600 hover:bg-violet-500"
-                    onClick={() => setInput('start my store workflow')}
+                    onClick={startResearchWorkflow}
                   >
                     <Rocket className="w-4 h-4 mr-2" />
                     Start Workflow
@@ -2928,7 +2979,7 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                 <Button 
                   size="sm" 
                   className="w-full mt-2 bg-green-600 hover:bg-green-500"
-                  onClick={() => setInput('start my store workflow')}
+                  onClick={startResearchWorkflow}
                 >
                   Start Workflow
                 </Button>
