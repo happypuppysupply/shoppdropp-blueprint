@@ -834,8 +834,8 @@ export default function AIAgentPage() {
       setResearchStatus('running')
       setResearchActivities([])
       
-      // Connect to research WebSocket
-      const wsUrl = `${API_URL.replace(/^http/, 'ws')}/ws/research?userId=${user.id}&storeId=${activeStore.id}`
+      // Connect to research WebSocket with auth token
+      const wsUrl = `${API_URL.replace(/^http/, 'ws')}/ws/research?userId=${user.id}&storeId=${activeStore.id}&token=${token}`
       const ws = new WebSocket(wsUrl)
       setResearchWs(ws)
       
