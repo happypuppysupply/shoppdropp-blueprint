@@ -825,39 +825,92 @@ export default function AIAgentPage() {
   async function startResearchWorkflow() {
     try {
       const token = authToken || session?.access_token
-      if (!token || !activeStore?.id) return
+      if (!token || !activeStore?.id || !user?.id) return
 
-      setLoading(true)
+      setResearchStatus('running')
+      setResearchActivities([])
       
-      // Send command to start research workflow
-      const response = await fetch(`${API_URL}/api/ai-chat/chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          message: 'Start product research workflow using system OpenWeb Ninja APIs',
-          store_id: activeStore.id,
-          use_system_apis: true
-        }),
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setMessages(prev => [...prev, { 
-          role: 'assistant', 
-          content: data.response || 'Research workflow initiated. Analyzing market data...'
-        }])
+      // Connect to research WebSocket
+      const wsUrl = `${API_URL.replace(/^http/, 'ws')}/ws/research?userId=${user.id}&storeId=${activeStore.id}`
+      const ws = new WebSocket(wsUrl)
+      setResearchWs(ws)
+      
+      ws.onopen = () => {
+        console.log('[Research] WebSocket connected')
+        // Start research with onboarding data
+        ws.send(JSON.stringify({
+          type: 'start_research',
+          context: {
+            category: workflowStatus?.storeConfig?.market || 'General',
+            subcategory: workflowStatus?.storeConfig?.market || 'products',
+            productCount: 20,
+            priceRange: { min: 10, max: 50 },
+            targetAudience: workflowStatus?.storeConfig?.targetAudience || 'general',
+            brandName: activeStore?.name || 'My Store',
+          }
+        }))
       }
-    } catch (error) {
-      console.error('Failed to start research workflow:', error)
+      
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          console.log('[Research] Message:', data)
+          
+          switch (data.type) {
+            case 'research_started':
+              setResearchRunId(data.runId)
+              break
+              
+            case 'activity':
+              setResearchActivities(prev => [...prev, data.activity])
+              break
+              
+            case 'research_complete':
+              setResearchStatus('completed')
+              setMessages(prev => [...prev, {
+                role: 'assistant',
+                content: `✅ Research complete! Found ${data.result?.productsVerified || 0} products available on CJ Dropshipping.`
+              }])
+              ws.close()
+              break
+              
+            case 'error':
+              setResearchStatus('failed')
+              setMessages(prev => [...prev, {
+                role: 'assistant',
+                content: `❌ Research failed: ${data.message || 'Unknown error'}`
+              }])
+              ws.close()
+              break
+          }
+        } catch (e) {
+          console.error('[Research] Failed to parse message:', e)
+        }
+      }
+      
+      ws.onerror = (error) => {
+        console.error('[Research] WebSocket error:', error)
+        setResearchStatus('failed')
+      }
+      
+      ws.onclose = () => {
+        console.log('[Research] WebSocket closed')
+        setResearchWs(null)
+      }
+      
+      // Add initial message
       setMessages(prev => [...prev, { 
         role: 'assistant', 
-        content: 'I encountered an error starting the research workflow. Please try saying "start research" to begin manually.'
+        content: '🎯 **Starting Product Research Workflow**\n\nNow I\'ll analyze market opportunities in your niche using our research APIs. This includes:\n• TikTok viral product discovery\n• Reddit community validation\n• Google Trends demand analysis\n• Amazon competition & pricing\n• CJ Dropshipping availability check\n\nStreaming results...'
       }])
-    } finally {
-      setLoading(false)
+      
+    } catch (error) {
+      console.error('Failed to start research workflow:', error)
+      setResearchStatus('failed')
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: '❌ I encountered an error starting the research workflow. Please try again.'
+      }])
     }
   }
 
