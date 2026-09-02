@@ -2205,13 +2205,15 @@ Next, I need to learn about your store to provide personalized assistance. Let's
                   </Badge>
                 ) : (
                   <Badge className="bg-violet-500/20 text-violet-400 border-violet-500/30 text-xs">
-                    {Object.keys(onboardingAnswers).length > 0 ? `${Object.keys(onboardingAnswers).length}/${TOTAL_ONBOARDING_QUESTIONS}` : 'Not Started'}
+                    {workflowStatus?.currentQuestion && workflowStatus.currentQuestion > 0 
+                      ? `In Progress (${workflowStatus.currentQuestion}/${TOTAL_ONBOARDING_QUESTIONS})` 
+                      : 'Not Started'}
                   </Badge>
                 )}
               </div>
               
               {/* Start Onboarding Button - only show when not started AND not currently running */}
-              {!workflowStatus?.onboardingComplete && !showInlineOnboarding && Object.keys(onboardingAnswers).length === 0 && (
+              {!workflowStatus?.onboardingComplete && !showInlineOnboarding && (!workflowStatus?.currentQuestion || workflowStatus.currentQuestion === 0) && (
                 <div className="mt-3">
                   <Button 
                     size="sm" 
