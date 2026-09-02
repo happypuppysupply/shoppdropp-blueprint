@@ -145,9 +145,17 @@ function parseFormBlocks(content: string): {
   let match
   
   while ((match = formRegex.exec(content)) !== null) {
-    const jsonStr = match[1].trim()
+    let jsonStr = match[1].trim()
     
     try {
+      // Fix malformed JSON - add opening brace if missing
+      if (jsonStr.startsWith('"type"') || jsonStr.startsWith('"question"')) {
+        jsonStr = '{' + jsonStr
+      }
+      // Fix malformed JSON - add closing brace if missing
+      if (!jsonStr.endsWith('}')) {
+        jsonStr = jsonStr + '}'
+      }
       // Parse the JSON content
       const data = JSON.parse(jsonStr)
       
