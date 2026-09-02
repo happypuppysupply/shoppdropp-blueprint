@@ -148,15 +148,20 @@ function parseFormBlocks(content: string): {
     let jsonStr = match[1].trim()
     
     try {
-      // Fix malformed JSON - extract just the JSON object if there's extra text
-      const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        jsonStr = jsonMatch[0];
-      } else {
-        // Add braces if completely missing
-        if (!jsonStr.startsWith('{')) jsonStr = '{' + jsonStr;
-        if (!jsonStr.endsWith('}')) jsonStr = jsonStr + '}';
+      // Try to find valid JSON object in the text
+      // Look for content between first { and last }
+      const firstBrace = jsonStr.indexOf('{');
+      const lastBrace = jsonStr.lastIndexOf('}');
+      
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
+      } else if (!jsonStr.startsWith('{')) {
+        jsonStr = '{' + jsonStr;
       }
+      if (!jsonStr.endsWith('}')) {
+        jsonStr = jsonStr + '}';
+      }
+      
       // Parse the JSON content
       const data = JSON.parse(jsonStr)
       
@@ -789,7 +794,7 @@ export default function AIAgentPage() {
       if (!storeRes.ok) return null
 
       const stores = await storeRes.json()
-      if (stores.length === 0) return null
+      if (!stores || stores.length === 0 || !stores[0]?.id) return null
 
       const storeId = stores[0].id
       const response = await fetch(`${API_URL}/api/onboarding/workflow-status/${storeId}`, {
@@ -903,11 +908,16 @@ export default function AIAgentPage() {
         setResearchWs(null)
       }
       
-      // Add initial message
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: '🎯 **Starting Product Research Workflow**\n\nNow I\'ll analyze market opportunities in your niche using our research APIs. This includes:\n• TikTok viral product discovery\n• Reddit community validation\n• Google Trends demand analysis\n• Amazon competition & pricing\n• CJ Dropshipping availability check\n\nStreaming results...'
-      }])
+      // Add initial message only if not already present
+      const researchMessage = '🎯 **Starting Product Research Workflow**';
+      setMessages(prev => {
+        const alreadyExists = prev.some(m => m.content?.includes('Starting Product Research Workflow'));
+        if (alreadyExists) return prev;
+        return [...prev, { 
+          role: 'assistant', 
+          content: researchMessage + '\n\nNow I\'ll analyze market opportunities in your niche using our research APIs. This includes:\n• TikTok viral product discovery\n• Reddit community validation\n• Google Trends demand analysis\n• Amazon competition & pricing\n• CJ Dropshipping availability check\n\nStreaming results...'
+        }];
+      })
       
     } catch (error) {
       console.error('Failed to start research workflow:', error)
