@@ -148,19 +148,19 @@ function parseFormBlocks(content: string): {
     let jsonStr = match[1].trim()
     
     try {
-      // Try to find valid JSON object in the text
-      // Look for content between first { and last }
-      const firstBrace = jsonStr.indexOf('{');
-      const lastBrace = jsonStr.lastIndexOf('}');
+      // Extract JSON object if wrapped in other text
+      const jsonMatch = jsonStr.match(/\{[\s\S]*?\}/);
+      if (jsonMatch) {
+        jsonStr = jsonMatch[0];
+      } else {
+        // Add braces if completely missing
+        if (!jsonStr.startsWith('{')) jsonStr = '{' + jsonStr;
+        if (!jsonStr.endsWith('}')) jsonStr = jsonStr + '}';
+      }
       
-      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-        jsonStr = jsonStr.substring(firstBrace, lastBrace + 1);
-      } else if (!jsonStr.startsWith('{')) {
-        jsonStr = '{' + jsonStr;
-      }
-      if (!jsonStr.endsWith('}')) {
-        jsonStr = jsonStr + '}';
-      }
+      // Fix unquoted property names (e.g., {type:"cards"} -> {"type":"cards"})
+      // This regex adds quotes around unquoted keys
+      jsonStr = jsonStr.replace(/([{,]\s*)([a-zA-Z_$][a-zA-Z0-9_$]*)\s*:/g, '$1"$2":');
       
       // Parse the JSON content
       const data = JSON.parse(jsonStr)
