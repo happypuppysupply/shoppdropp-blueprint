@@ -72,12 +72,26 @@ interface WorkflowStatus {
   canStartWorkflow: boolean
   missingRequirements: string[]
   aiConfigured: boolean
+  currentQuestion?: number
+  totalQuestions?: number
+  researchComplete?: boolean
+  cjConnected?: boolean
+  shopifyConnected?: boolean
+  metaConnected?: boolean
+  worker?: {
+    id: string
+    status: string
+    ip?: string
+    created_at?: string
+  } | null
+  currentStage?: string
   storeConfig?: {
     market?: string
     brandVoice?: string
     siteStyle?: string
     targetAudience?: any
   }
+  onboardingAnswers?: Record<string, any>
 }
 
 const AI_PROVIDERS = [
