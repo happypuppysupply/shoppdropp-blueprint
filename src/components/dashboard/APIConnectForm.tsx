@@ -39,7 +39,7 @@ export function APIConnectForm({
 
     try {
       const token = localStorage.getItem('auth_token')
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://shopdrodpp-api.onrender.com'
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://shoppdropp-api.onrender.com'
 
       const response = await fetch(`${API_URL}/api/credentials`, {
         method: 'POST',

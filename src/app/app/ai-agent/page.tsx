@@ -120,7 +120,7 @@ const AI_PROVIDERS = [
   },
 ]
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://shopdrodpp-api.onrender.com'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://shoppdropp-api.onrender.com'
 
 // Animated thinking dots component
 function ThinkingDots() {
@@ -808,9 +808,10 @@ export default function AIAgentPage() {
       if (!storeRes.ok) return null
 
       const stores = await storeRes.json()
-      if (!stores || stores.length === 0 || !stores[0]?.id) return null
+      const storesArray = stores.stores || stores || []
+      if (!storesArray || storesArray.length === 0 || !storesArray[0]?.id) return null
 
-      const storeId = stores[0].id
+      const storeId = storesArray[0].id
       const response = await fetch(`${API_URL}/api/onboarding/workflow-status/${storeId}`, {
         headers: { 'Authorization': `Bearer ${token}` },
       })
